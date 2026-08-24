@@ -1,65 +1,211 @@
 # Cloud FinOps Operations Automation Engine
 
-A Python-based Cloud FinOps analytics and operations automation engine that processes cloud cost data, validates data quality, reconciles financial totals, identifies optimization opportunities, detects cost anomalies, estimates potential savings, and generates automated JSON and Excel reports.
+> A Python-based FinOps automation engine that analyzes cloud cost data, performs financial reconciliation, identifies optimization opportunities, detects cost anomalies, estimates potential savings, and generates automated JSON and Excel reports.
 
----
+## 🚀 Project Highlights
+# Cloud FinOps Operations Automation Engine# Cloud FinOps Operations Automation Engine
 
-## Project Overview
+> A Python-based FinOps automation engine that analyzes cloud cost data, performs financial reconciliation, identifies optimization opportunities, detects cost anomalies, estimates potential savings, and generates automated JSON and Excel reports.
 
-Cloud infrastructure can accumulate unnecessary costs because of:
+## 🚀 Project Highlights
 
-- Underutilized resources
-- Oversized resources
-- Stopped resources with continuing cost exposure
-- High-cost resources
-- Poor resource utilization
-- Lack of systematic cost monitoring
-- Manual reporting processes
+| Capability | Result |
+|---|---:|
+| Resources Analyzed | 300 |
+| Total Cloud Spend | ₹47,61,193 |
+| Optimization Investigations | 184 |
+| Rightsizing Candidates | 42 |
+| Rightsizing Cost Exposure | ₹6,99,880 |
+| Estimated Rightsizing Savings | ₹2,09,964 |
+| High Priority Opportunities | 66 |
+| Anomalies Detected | 95 |
+| Automated Tests | 23 |
+| Test Status | ✅ 23/23 Passing |
+| Pipeline Status | ✅ SUCCESS |
 
-This project automates a FinOps workflow from cost-data ingestion to operational recommendations and reporting.
+## 🎯 What This Project Does
 
-The engine is designed around four major principles:
+The engine automates a FinOps workflow:
 
-1. **Data Quality**
-2. **Financial Reconciliation**
-3. **Optimization Analysis**
-4. **Operational Reporting**
+**Cloud Cost Data → Validation → Reconciliation → KPI Analysis → Optimization → Anomaly Detection → Reporting**
 
----
+It is designed as an operational decision-support system rather than simply a cost-reporting script.
 
-## Key Features
-
-### 1. Data Ingestion
-
-Loads cloud cost data from CSV files using Pandas.
-
-The current sample dataset contains:
-
-- 300 resources
-- 11 columns
-
----
-
-### 2. Data Quality Validation
-
-The pipeline validates:
-
-- Required columns
-- Missing values
-- Duplicate records
-- Numeric values
-- Dates
-- Categorical values
-
-A consolidated data-quality status is produced.
-
-Example:
+## 🏗️ Architecture
 
 ```text
-required_columns          PASS
-missing_values            PASS
-duplicates                PASS
-numeric_values            PASS
-dates                     PASS
-categorical_values        PASS
-overall_status            PASS
+                    Cloud Cost CSV
+                          │
+                          ▼
+                   ┌─────────────┐
+                   │ Data Loader │
+                   └──────┬──────┘
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │ Data Validation  │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │ Cost             │
+                 │ Reconciliation   │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │ FinOps KPI       │
+                 │ Engine           │
+                 └────────┬─────────┘
+                          │
+             ┌────────────┴────────────┐
+             ▼                         ▼
+      ┌───────────────┐        ┌────────────────┐
+      │ Optimization  │        │ Anomaly        │
+      │ Engine        │        │ Detection      │
+      └───────┬───────┘        └───────┬────────┘
+              │                        │
+              └────────────┬───────────┘
+                           ▼
+                  ┌────────────────┐
+                  │ Reporting      │
+                  └───────┬────────┘
+                          │
+                  ┌───────┴───────┐
+                  ▼               ▼
+                JSON            Excel
+
+> A Python-based FinOps automation engine that analyzes cloud cost data, performs financial reconciliation, identifies optimization opportunities, detects cost anomalies, estimates potential savings, and generates automated JSON and Excel reports.
+
+## 🚀 Project Highlights
+
+| Capability | Result |
+|---|---:|
+| Resources Analyzed | 300 |
+| Total Cloud Spend | ₹47,61,193 |
+| Optimization Investigations | 184 |
+| Rightsizing Candidates | 42 |
+| Rightsizing Cost Exposure | ₹6,99,880 |
+| Estimated Rightsizing Savings | ₹2,09,964 |
+| High Priority Opportunities | 66 |
+| Anomalies Detected | 95 |
+| Automated Tests | 23 |
+| Test Status | ✅ 23/23 Passing |
+| Pipeline Status | ✅ SUCCESS |
+
+## 🎯 What This Project Does
+
+The engine automates a FinOps workflow:
+
+**Cloud Cost Data → Validation → Reconciliation → KPI Analysis → Optimization → Anomaly Detection → Reporting**
+
+It is designed as an operational decision-support system rather than simply a cost-reporting script.
+
+## 🏗️ Architecture
+
+```text
+                    Cloud Cost CSV
+                          │
+                          ▼
+                   ┌─────────────┐
+                   │ Data Loader │
+                   └──────┬──────┘
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │ Data Validation  │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │ Cost             │
+                 │ Reconciliation   │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │ FinOps KPI       │
+                 │ Engine           │
+                 └────────┬─────────┘
+                          │
+             ┌────────────┴────────────┐
+             ▼                         ▼
+      ┌───────────────┐        ┌────────────────┐
+      │ Optimization  │        │ Anomaly        │
+      │ Engine        │        │ Detection      │
+      └───────┬───────┘        └───────┬────────┘
+              │                        │
+              └────────────┬───────────┘
+                           ▼
+                  ┌────────────────┐
+                  │ Reporting      │
+                  └───────┬────────┘
+                          │
+                  ┌───────┴───────┐
+                  ▼               ▼
+                JSON            Excel
+| Capability | Result |
+|---|---:|
+| Resources Analyzed | 300 |
+| Total Cloud Spend | ₹47,61,193 |
+| Optimization Investigations | 184 |
+| Rightsizing Candidates | 42 |
+| Rightsizing Cost Exposure | ₹6,99,880 |
+| Estimated Rightsizing Savings | ₹2,09,964 |
+| High Priority Opportunities | 66 |
+| Anomalies Detected | 95 |
+| Automated Tests | 23 |
+| Test Status | ✅ 23/23 Passing |
+| Pipeline Status | ✅ SUCCESS |
+
+## 🎯 What This Project Does
+
+The engine automates a FinOps workflow:
+
+**Cloud Cost Data → Validation → Reconciliation → KPI Analysis → Optimization → Anomaly Detection → Reporting**
+
+It is designed as an operational decision-support system rather than simply a cost-reporting script.
+
+## 🏗️ Architecture
+
+```text
+                    Cloud Cost CSV
+                          │
+                          ▼
+                   ┌─────────────┐
+                   │ Data Loader │
+                   └──────┬──────┘
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │ Data Validation  │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │ Cost             │
+                 │ Reconciliation   │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │ FinOps KPI       │
+                 │ Engine           │
+                 └────────┬─────────┘
+                          │
+             ┌────────────┴────────────┐
+             ▼                         ▼
+      ┌───────────────┐        ┌────────────────┐
+      │ Optimization  │        │ Anomaly        │
+      │ Engine        │        │ Detection      │
+      └───────┬───────┘        └───────┬────────┘
+              │                        │
+              └────────────┬───────────┘
+                           ▼
+                  ┌────────────────┐
+                  │ Reporting      │
+                  └───────┬────────┘
+                          │
+                  ┌───────┴───────┐
+                  ▼               ▼
+                JSON            Excel
