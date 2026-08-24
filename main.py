@@ -1,0 +1,502 @@
+from src.config import load_config
+
+from src.data_loader import load_cost_data
+
+from src.data_validator import (
+    validate_required_columns,
+    validate_missing_values,
+    validate_duplicates,
+    validate_numeric_values,
+    validate_dates,
+    validate_categorical_values,
+    create_validation_summary
+)
+
+from src.reconciliation import (
+    load_control_total,
+    reconcile_costs
+)
+
+from src.finops_metrics import generate_kpi_summary
+
+from src.report_generator import generate_json_report
+from src.excel_report import generate_excel_report
+from src.pipeline_controller import should_continue
+from src.logger import setup_logger
+from src.anomaly_detector import (
+    detect_anomalies,
+    generate_anomaly_summary
+)
+from src.execution import (
+    create_run_id,
+    start_timer,
+    calculate_duration
+)
+
+
+DATA_FILE = "data/input/aws_cost.csv"
+CONTROL_FILE = "data/reference/billing_control.csv"
+
+
+def main():
+
+    # ----------------------------------------
+    # 1. Start execution tracking
+    # ----------------------------------------
+
+    run_id = create_run_id()
+    start_time = start_timer()
+
+    logger = setup_logger()
+
+    logger.info(
+        f"FinOps pipeline started | Run ID: {run_id}"
+    )
+
+
+    # ----------------------------------------
+    # 2. Load configuration
+    # ----------------------------------------
+
+    config = load_config()
+
+    tolerance = config["reconciliation"]["tolerance"]
+
+    cpu_threshold = config["optimization"]["cpu_threshold"]
+
+    savings_assumption = config["optimization"]["savings_assumption"]
+
+    # ----------------------------------------
+    # 3. Load data
+    # ----------------------------------------
+
+    df = load_cost_data(DATA_FILE)
+
+    logger.info(
+        f"Loaded cost data successfully: {len(df)} records"
+    )
+
+    print("Data loaded successfully.")
+    print(f"Rows: {len(df)}")
+    print(f"Columns: {len(df.columns)}")
+
+
+    # ----------------------------------------
+    # 4. Required columns validation
+    # ----------------------------------------
+
+    required_columns_ok = validate_required_columns(df)
+
+    print("Required column validation: PASS")
+
+
+    # ----------------------------------------
+    # 5. Missing values validation
+    # ----------------------------------------
+
+    missing_values = validate_missing_values(df)
+
+    if missing_values:
+        print("Missing values detected:")
+        print(missing_values)
+    else:
+        print("Missing value validation: PASS")
+
+
+    # ----------------------------------------
+    # 6. Duplicate validation
+    # ----------------------------------------
+
+    duplicate_count = validate_duplicates(df)
+
+    if duplicate_count > 0:
+        print(
+            f"Duplicate records detected: "
+            f"{duplicate_count}"
+        )
+    else:
+        print("Duplicate record validation: PASS")
+
+
+    # ----------------------------------------
+    # 7. Numeric validation
+    # ----------------------------------------
+
+    numeric_issues = validate_numeric_values(df)
+
+    if numeric_issues:
+        print("Numeric validation issues detected:")
+        print(numeric_issues)
+    else:
+        print("Numeric validation: PASS")
+
+
+    # ----------------------------------------
+    # 8. Date validation
+    # ----------------------------------------
+
+    invalid_date_count = validate_dates(df)
+
+    if invalid_date_count > 0:
+        print(
+            f"Date validation issues detected: "
+            f"{invalid_date_count}"
+        )
+    else:
+        print("Date validation: PASS")
+
+
+    # ----------------------------------------
+    # 9. Categorical validation
+    # ----------------------------------------
+
+    categorical_issues = validate_categorical_values(df)
+
+    if categorical_issues:
+        print(
+            "Categorical validation issues detected:"
+        )
+        print(categorical_issues)
+    else:
+        print("Categorical validation: PASS")
+
+
+    # ----------------------------------------
+    # 10. Validation summary
+    # ----------------------------------------
+
+    validation_summary = create_validation_summary(
+        required_columns_ok,
+        missing_values,
+        duplicate_count,
+        numeric_issues,
+        invalid_date_count,
+        categorical_issues
+    )
+
+    logger.info(
+        f"Data quality status: "
+        f"{validation_summary['overall_status']}"
+    )
+
+    print()
+    print("=" * 50)
+    print("DATA QUALITY SUMMARY")
+    print("=" * 50)
+
+    for check, status in validation_summary.items():
+        print(f"{check:<25} {status}")
+
+    print("=" * 50)
+
+
+    # ----------------------------------------
+    # 11. Cost reconciliation
+    # ----------------------------------------
+
+    expected_total = load_control_total(
+        CONTROL_FILE
+    )
+
+    reconciliation_result = reconcile_costs(
+        df,
+        expected_total,
+        tolerance
+    )
+
+    logger.info(
+        f"Reconciliation status: "
+        f"{reconciliation_result['status']} | "
+        f"Difference: "
+        f"₹{reconciliation_result['difference']:,.2f}"
+    )
+
+    print()
+    print("=" * 50)
+    print("COST RECONCILIATION")
+    print("=" * 50)
+
+    print(
+        f"Expected total:  "
+        f"₹{reconciliation_result['expected_total']:,.2f}"
+    )
+
+    print(
+        f"Processed total: "
+        f"₹{reconciliation_result['processed_total']:,.2f}"
+    )
+
+    print(
+        f"Difference:      "
+        f"₹{reconciliation_result['difference']:,.2f}"
+    )
+
+    print(
+        f"Status:          "
+        f"{reconciliation_result['status']}"
+    )
+
+    print(
+        f"Tolerance:       "
+        f"₹{reconciliation_result['tolerance']:,.2f}"
+    )
+
+    print("=" * 50)
+
+
+    # ----------------------------------------
+    # 12. Pipeline control
+    # ----------------------------------------
+
+    pipeline_ok, pipeline_message = should_continue(
+        validation_summary,
+        reconciliation_result
+    )
+
+    logger.info(
+        f"Pipeline control: "
+        f"{'CONTINUE' if pipeline_ok else 'STOP'} | "
+        f"{pipeline_message}"
+    )
+
+    print()
+    print("=" * 50)
+    print("PIPELINE CONTROL")
+    print("=" * 50)
+
+    print(
+        f"Status:  "
+        f"{'CONTINUE' if pipeline_ok else 'STOP'}"
+    )
+
+    print(
+        f"Message: {pipeline_message}"
+    )
+
+    print("=" * 50)
+
+
+    if not pipeline_ok:
+
+        logger.error(
+            f"Pipeline stopped | Run ID: {run_id} | "
+            f"Reason: {pipeline_message}"
+        )
+
+        print("Pipeline stopped.")
+        return
+
+
+    # ----------------------------------------
+    # 13. Generate FinOps KPI summary
+    # ----------------------------------------
+
+    kpi_summary = generate_kpi_summary(
+    df,
+    cpu_threshold,
+    savings_assumption
+)
+
+    print()
+    print("=" * 50)
+    print("FINOPS KPI SUMMARY")
+    print("=" * 50)
+
+    for metric, value in kpi_summary.items():
+        print(f"{metric:<30} {value}")
+
+    print("=" * 50)
+
+    # ----------------------------------------
+# 13. Anomaly detection
+# ----------------------------------------
+
+    anomaly_config = config["anomaly_detection"]
+
+    anomalies = detect_anomalies(
+        df,
+        high_cost_threshold=anomaly_config["high_cost_threshold"],
+        low_cpu_threshold=anomaly_config["low_cpu_threshold"]
+)
+    anomaly_summary = generate_anomaly_summary(
+    anomalies
+)
+
+
+    print()
+    print("=" * 50)
+    print("ANOMALY DETECTION")
+    print("=" * 50)
+
+    print(
+       f"Total anomalies: {len(anomalies)}"
+)
+
+    if len(anomalies) > 0:
+
+        print(
+           anomalies[
+            [
+                "Anomaly_Rank",
+                "Resource_ID",
+                "Service",
+                "Anomaly_Type",
+                "Severity",
+                "Monthly_Cost"
+            ]
+        ]
+        .head(10)
+        .to_string(index=False)
+    )
+
+    print("=" * 50)
+    # ----------------------------------------
+    # 14. Calculate execution duration
+    # ----------------------------------------
+
+    duration = calculate_duration(start_time)
+
+
+    # ----------------------------------------
+    # 15. Create execution metadata
+    # ----------------------------------------
+
+    execution_metadata = {
+        "run_id": run_id,
+        "records_processed": len(df),
+        "total_spend": float(
+            kpi_summary["total_spend"]
+        ),
+        "validation_status": (
+            validation_summary["overall_status"]
+        ),
+        "reconciliation_status": (
+            reconciliation_result["status"]
+        ),
+        "pipeline_status": "SUCCESS",
+        "duration_seconds": round(
+            duration,
+            2
+        )
+    }
+
+
+    # ----------------------------------------
+    # 16. Generate JSON report
+    # ----------------------------------------
+
+    report_path = generate_json_report(
+    "output/finops_summary.json",
+    kpi_summary,
+    validation_summary,
+    reconciliation_result,
+    execution_metadata,
+    anomaly_summary
+)
+
+    print()
+    print(
+        f"JSON report generated: {report_path}"
+    )
+    # ----------------------------------------
+# 17. Generate Excel report
+# ----------------------------------------
+
+    excel_report_path = generate_excel_report(
+    "output/finops_report.xlsx",
+    df,
+    kpi_summary,
+    validation_summary,
+    reconciliation_result,
+    cpu_threshold,
+    savings_assumption,
+    anomaly_summary,
+    anomalies
+)
+
+    print()
+    print(
+    f"Excel report generated: "
+    f"{excel_report_path}"
+)
+
+    # ----------------------------------------
+    # 18. Execution summary
+    # ----------------------------------------
+
+    print()
+    print("=" * 50)
+    print("EXECUTION SUMMARY")
+    print("=" * 50)
+
+    print(
+        f"Run ID:              {run_id}"
+    )
+
+    print(
+        f"Records processed:   {len(df)}"
+    )
+
+    print(
+        f"Total spend:         "
+        f"₹{kpi_summary['total_spend']:,.2f}"
+    )
+
+    print(
+        f"Validation:          "
+        f"{validation_summary['overall_status']}"
+    )
+
+    print(
+        f"Reconciliation:      "
+        f"{reconciliation_result['status']}"
+    )
+
+    print(
+        "Pipeline:             SUCCESS"
+    )
+
+    print(
+        f"Duration:            "
+        f"{duration:.2f} seconds"
+    )
+
+    print("=" * 50)
+
+
+    # ----------------------------------------
+    # 19. Log successful completion
+    # ----------------------------------------
+
+    logger.info(
+        f"Pipeline completed successfully | "
+        f"Run ID: {run_id} | "
+        f"Records: {len(df)} | "
+        f"Duration: {duration:.2f}s"
+    )
+
+
+# ----------------------------------------
+# Application entry point
+# ----------------------------------------
+
+if __name__ == "__main__":
+    try:
+        main()
+
+    except Exception as error:
+
+        print()
+        print("=" * 50)
+        print("PIPELINE STATUS")
+        print("=" * 50)
+        print("Status: FAILED")
+        print(f"Reason: {error}")
+        print("=" * 50)
+
+        logger = setup_logger()
+
+        logger.error(
+            f"Pipeline failed: {error}",
+            exc_info=True
+        )

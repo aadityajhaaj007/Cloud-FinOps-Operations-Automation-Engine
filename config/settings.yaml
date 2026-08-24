@@ -1,0 +1,10 @@
+reconciliation:
+  tolerance: 1.00
+
+optimization:
+  cpu_threshold: 30
+  savings_assumption: 0.30
+
+anomaly_detection:
+  high_cost_threshold: 25000
+  low_cpu_threshold: 20
