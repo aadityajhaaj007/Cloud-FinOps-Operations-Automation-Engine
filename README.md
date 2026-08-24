@@ -1,5 +1,7 @@
 # Cloud FinOps Operations Automation Engine
 
+[![FinOps Tests](https://github.com/aadityajhaaj007/Cloud-FinOps-Operations-Automation-Engine/actions/workflows/tests.yml/badge.svg)](https://github.com/aadityajhaaj007/Cloud-FinOps-Operations-Automation-Engine/actions/workflows/tests.yml)
+
 > A Python-based FinOps automation engine that analyzes cloud cost data, performs financial reconciliation, identifies optimization opportunities, detects cost anomalies, estimates potential savings, and generates automated JSON and Excel reports.
 
 ## 🚀 Project Highlights
