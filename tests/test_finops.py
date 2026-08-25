@@ -1,6 +1,10 @@
 import unittest
 import pandas as pd
 
+from src.action_governance import (
+    apply_action_governance
+)
+
 from src.data_validator import (
     validate_required_columns,
     validate_missing_values,
@@ -124,6 +128,118 @@ class TestFinOpsPipeline(unittest.TestCase):
                 "Running",
             ],
         })
+
+    # ========================================
+    # V1.3 ACTION GOVERNANCE
+    # ========================================
+
+    def test_action_governance_fields(self):
+
+        action_register = pd.DataFrame([
+            {
+                "Action_ID": "FIN-0001",
+                "Priority": "HIGH",
+                "Estimated_Savings": 8873.10
+            }
+        ])
+
+        governed = apply_action_governance(
+            action_register,
+            created_date="2026-08-25",
+            target_days=7
+        )
+
+        self.assertIn(
+            "Created_Date",
+            governed.columns
+        )
+
+        self.assertIn(
+            "Target_Date",
+            governed.columns
+        )
+
+        self.assertIn(
+            "Completed_Date",
+            governed.columns
+        )
+
+        self.assertIn(
+            "Days_Open",
+            governed.columns
+        )
+
+        self.assertIn(
+            "SLA_Status",
+            governed.columns
+        )
+
+    def test_action_governance_target_date(self):
+
+        action_register = pd.DataFrame([
+            {
+                "Action_ID": "FIN-0001",
+                "Priority": "HIGH",
+                "Estimated_Savings": 8873.10
+            }
+        ])
+
+        governed = apply_action_governance(
+            action_register,
+            created_date="2026-08-25",
+            target_days=7
+        )
+
+        self.assertEqual(
+            governed.iloc[0]["Target_Date"],
+            pd.Timestamp("2026-09-01")
+        )
+
+    def test_action_governance_status(self):
+
+        action_register = pd.DataFrame([
+            {
+                "Action_ID": "FIN-0001",
+                "Priority": "HIGH",
+                "Estimated_Savings": 8873.10
+            }
+        ])
+
+        governed = apply_action_governance(
+            action_register,
+            created_date="2026-08-25",
+            target_days=7
+        )
+
+        self.assertEqual(
+            governed.iloc[0]["SLA_Status"],
+            "ON_TRACK"
+        )
+
+    def test_action_governance_empty_register(self):
+
+        action_register = pd.DataFrame(
+            columns=[
+                "Action_ID",
+                "Priority",
+                "Estimated_Savings"
+            ]
+        )
+
+        governed = apply_action_governance(
+            action_register,
+            created_date="2026-08-25",
+            target_days=7
+        )
+
+        self.assertTrue(
+            governed.empty
+        )
+
+        self.assertIn(
+            "SLA_Status",
+            governed.columns
+        )
 
     # ========================================
     # DATA VALIDATION
