@@ -33,6 +33,9 @@ from src.cost_intelligence import (
 from src.action_register import (
     generate_action_register
 )
+from src.action_governance import (
+    apply_action_governance
+)
 
 from src.execution import (
     create_run_id,
@@ -382,8 +385,20 @@ def main():
    # ----------------------------------------
 
     action_register = generate_action_register(
-      df,
-      savings_intelligence
+        df,
+        savings_intelligence
+)
+    created_date = (
+    f"{run_id[:4]}-"
+    f"{run_id[4:6]}-"
+    f"{run_id[6:8]}"
+)
+
+
+    action_register = apply_action_governance(
+        action_register,
+        created_date=created_date,
+        target_days=7
 )
 
     print()
@@ -395,6 +410,7 @@ def main():
         f"Action items: {len(action_register)}"
 )
 
+
     if not action_register.empty:
 
         print(
@@ -404,7 +420,10 @@ def main():
                 "Resource_ID",
                 "Priority",
                 "Estimated_Savings",
-                "Action_Status"
+                "Action_Status",
+                "Target_Date",
+                "Days_Open",
+                "SLA_Status"
             ]
         ]
         .head(10)
@@ -484,7 +503,8 @@ def main():
     reconciliation_result,
     execution_metadata,
     anomaly_summary,
-    savings_intelligence
+    savings_intelligence,
+    action_register
 )
 
     print()
