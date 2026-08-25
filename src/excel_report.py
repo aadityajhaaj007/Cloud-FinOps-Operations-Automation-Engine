@@ -89,7 +89,8 @@ def generate_excel_report(
     savings_assumption,
     anomaly_summary=None,
     anomalies=None,
-    savings_intelligence=None
+    savings_intelligence=None,
+    action_register=None
 ):
 
     output_file = Path(output_path)
@@ -1076,6 +1077,97 @@ def generate_excel_report(
     add_table(
         top_savings_sheet,
         "TopSavingsOpportunities"
+    )
+
+        # ========================================
+    # 13. SAVINGS ACTION REGISTER
+    # ========================================
+
+    action_register_sheet = workbook.create_sheet(
+        "Savings Action Register"
+    )
+
+    action_register_sheet.append([
+        "Action ID",
+        "Savings Rank",
+        "Resource ID",
+        "Service",
+        "Business Unit",
+        "Owner",
+        "Priority",
+        "Resource Status",
+        "CPU Utilization",
+        "Monthly Cost",
+        "Estimated Savings",
+        "Recommendation",
+        "Action Status",
+        "Target Date",
+        "Notes"
+    ])
+
+    if (
+        action_register is not None
+        and not action_register.empty
+    ):
+
+        for _, row in action_register.iterrows():
+
+            action_register_sheet.append([
+                row["Action_ID"],
+                int(
+                    row["Savings_Rank"]
+                ),
+                row["Resource_ID"],
+                row["Service"],
+                row["Business_Unit"],
+                row["Owner"],
+                row["Priority"],
+                row["Resource_Status"],
+                float(
+                    row["CPU_Utilization"]
+                ),
+                float(
+                    row["Monthly_Cost"]
+                ),
+                float(
+                    row["Estimated_Savings"]
+                ),
+                row["Recommendation"],
+                row["Action_Status"],
+                row["Target_Date"],
+                row["Notes"]
+            ])
+
+    format_header(
+        action_register_sheet
+    )
+
+    action_register_sheet.freeze_panes = "A2"
+
+    for row in range(
+        2,
+        action_register_sheet.max_row + 1
+    ):
+
+        action_register_sheet[
+            f"I{row}"
+        ].number_format = "0.00"
+
+        action_register_sheet[
+            f"J{row}"
+        ].number_format = '₹#,##0.00'
+
+        action_register_sheet[
+            f"K{row}"
+        ].number_format = '₹#,##0.00'
+
+    auto_adjust_columns(
+        action_register_sheet
+    )
+
+    add_table(
+        action_register_sheet,
+        "SavingsActionRegister"
     )
 
 

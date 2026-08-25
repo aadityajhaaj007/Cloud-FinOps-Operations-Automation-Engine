@@ -37,6 +37,9 @@ from src.cost_intelligence import (
     calculate_savings_intelligence,
 )
 
+from src.action_register import (
+    generate_action_register,
+)
 
 class TestFinOpsPipeline(unittest.TestCase):
 
@@ -661,6 +664,81 @@ class TestFinOpsPipeline(unittest.TestCase):
             places=2
         )
 
+    # ========================================
+    # V1.2 SAVINGS ACTION REGISTER
+    # ========================================
+
+    def test_action_register(self):
+
+        savings = calculate_savings_intelligence(
+            self.df,
+            cpu_threshold=30,
+            savings_assumption=0.30
+        )
+
+        result = generate_action_register(
+            self.df,
+            savings
+        )
+
+        self.assertEqual(
+            len(result),
+            1
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Action_ID"],
+            "FIN-0001"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Resource_ID"],
+            "res-001"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Action_Status"],
+            "OPEN"
+        )
+
+
+    def test_action_register_owner(self):
+
+        savings = calculate_savings_intelligence(
+            self.df,
+            cpu_threshold=30,
+            savings_assumption=0.30
+        )
+
+        result = generate_action_register(
+            self.df,
+            savings
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Owner"],
+            "Team-A"
+        )
+
+
+    def test_action_register_savings(self):
+
+        savings = calculate_savings_intelligence(
+            self.df,
+            cpu_threshold=30,
+            savings_assumption=0.30
+        )
+
+        result = generate_action_register(
+            self.df,
+            savings
+        )
+
+        self.assertAlmostEqual(
+            result.iloc[0]["Estimated_Savings"],
+            3000.0,
+            places=2
+        )
 
 if __name__ == "__main__":
     unittest.main()

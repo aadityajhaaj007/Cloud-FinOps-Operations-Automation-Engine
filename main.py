@@ -30,6 +30,9 @@ from src.anomaly_detector import (
 from src.cost_intelligence import (
     calculate_savings_intelligence
 )
+from src.action_register import (
+    generate_action_register
+)
 
 from src.execution import (
     create_run_id,
@@ -364,16 +367,58 @@ def main():
         f"{savings_intelligence['savings_percentage']:.2f}%"
     )
 
+
+
     print(
-        f"Rightsizing candidates:  "
-        f"{savings_intelligence['rightsizing_count']}"
+    f"Rightsizing candidates:  "
+    f"{savings_intelligence['rightsizing_count']}"
+)
+
+    print("=" * 50)
+
+
+   # ----------------------------------------
+   # 15. Savings action register
+   # ----------------------------------------
+
+    action_register = generate_action_register(
+      df,
+      savings_intelligence
+)
+
+    print()
+    print("=" * 50)
+    print("SAVINGS ACTION REGISTER")
+    print("=" * 50)
+
+    print(
+        f"Action items: {len(action_register)}"
+)
+
+    if not action_register.empty:
+
+        print(
+            action_register[
+            [
+                "Action_ID",
+                "Resource_ID",
+                "Priority",
+                "Estimated_Savings",
+                "Action_Status"
+            ]
+        ]
+        .head(10)
+        .to_string(index=False)
     )
 
     print("=" * 50)
+
+
     print()
     print("=" * 50)
     print("ANOMALY DETECTION")
     print("=" * 50)
+
 
     print(
        f"Total anomalies: {len(anomalies)}"
