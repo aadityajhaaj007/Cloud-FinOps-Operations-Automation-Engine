@@ -33,6 +33,10 @@ from src.anomaly_detector import (
     generate_anomaly_summary,
 )
 
+from src.cost_intelligence import (
+    calculate_savings_intelligence,
+)
+
 
 class TestFinOpsPipeline(unittest.TestCase):
 
@@ -535,7 +539,128 @@ class TestFinOpsPipeline(unittest.TestCase):
             result[2]
         )
 
+    # ========================================
+    # V1.1 COST INTELLIGENCE
+    # ========================================
+
+    def test_savings_intelligence(self):
+
+        result = calculate_savings_intelligence(
+            self.df,
+            cpu_threshold=30,
+            savings_assumption=0.30
+        )
+
+        self.assertEqual(
+            result["total_spend"],
+            50000.0
+        )
+
+        self.assertAlmostEqual(
+            result["estimated_savings"],
+            3000.0,
+            places=2
+        )
+
+        self.assertAlmostEqual(
+            result["savings_percentage"],
+            6.0,
+            places=2
+        )
+
+        self.assertEqual(
+            result["rightsizing_count"],
+            1
+        )
+
+
+    def test_service_savings(self):
+
+        result = calculate_savings_intelligence(
+            self.df,
+            cpu_threshold=30,
+            savings_assumption=0.30
+        )
+
+        service_savings = result[
+            "service_savings"
+        ]
+
+        self.assertEqual(
+            len(service_savings),
+            1
+        )
+
+        self.assertAlmostEqual(
+            service_savings.loc[
+                "EC2",
+                "estimated_savings"
+            ],
+            3000.0,
+            places=2
+        )
+
+
+    def test_business_unit_savings(self):
+
+        result = calculate_savings_intelligence(
+            self.df,
+            cpu_threshold=30,
+            savings_assumption=0.30
+        )
+
+        business_savings = result[
+            "business_unit_savings"
+        ]
+
+        self.assertEqual(
+            len(business_savings),
+            1
+        )
+
+        self.assertAlmostEqual(
+            business_savings.loc[
+                "Engineering",
+                "estimated_savings"
+            ],
+            3000.0,
+            places=2
+        )
+
+
+    def test_top_savings_opportunities(self):
+
+        result = calculate_savings_intelligence(
+            self.df,
+            cpu_threshold=30,
+            savings_assumption=0.30
+        )
+
+        top = result[
+            "top_opportunities"
+        ]
+
+        self.assertEqual(
+            len(top),
+            1
+        )
+
+        self.assertEqual(
+            top.iloc[0]["Resource_ID"],
+            "res-001"
+        )
+
+        self.assertEqual(
+            top.iloc[0]["Savings_Rank"],
+            1
+        )
+
+        self.assertAlmostEqual(
+            top.iloc[0]["Estimated_Savings"],
+            3000.0,
+            places=2
+        )
+
 
 if __name__ == "__main__":
-
     unittest.main()

@@ -88,7 +88,8 @@ def generate_excel_report(
     cpu_threshold,
     savings_assumption,
     anomaly_summary=None,
-    anomalies=None
+    anomalies=None,
+    savings_intelligence=None
 ):
 
     output_file = Path(output_path)
@@ -729,6 +730,354 @@ def generate_excel_report(
         anomaly_details_sheet,
         "AnomalyDetails"
     )
+
+
+    # ========================================
+    # 9. SAVINGS INTELLIGENCE
+    # ========================================
+
+    savings_intelligence_sheet = workbook.create_sheet(
+        "Savings Intelligence"
+    )
+
+    savings_intelligence_sheet.append([
+        "Savings Metric",
+        "Value"
+    ])
+
+    if savings_intelligence is not None:
+
+        savings_intelligence_sheet.append([
+            "Total Spend",
+            float(
+                savings_intelligence[
+                    "total_spend"
+                ]
+            )
+        ])
+
+        savings_intelligence_sheet.append([
+            "Optimization Exposure",
+            float(
+                savings_intelligence[
+                    "optimization_exposure"
+                ]
+            )
+        ])
+
+        savings_intelligence_sheet.append([
+            "Rightsizing Exposure",
+            float(
+                savings_intelligence[
+                    "rightsizing_exposure"
+                ]
+            )
+        ])
+
+        savings_intelligence_sheet.append([
+            "Estimated Savings",
+            float(
+                savings_intelligence[
+                    "estimated_savings"
+                ]
+            )
+        ])
+
+        savings_intelligence_sheet.append([
+            "Savings Percentage",
+            float(
+                savings_intelligence[
+                    "savings_percentage"
+                ]
+            )
+        ])
+
+        savings_intelligence_sheet.append([
+            "Rightsizing Candidates",
+            int(
+                savings_intelligence[
+                    "rightsizing_count"
+                ]
+            )
+        ])
+
+    format_header(
+        savings_intelligence_sheet
+    )
+
+    savings_intelligence_sheet.freeze_panes = "A2"
+
+    for row in range(
+        2,
+        savings_intelligence_sheet.max_row + 1
+    ):
+
+        metric = savings_intelligence_sheet[
+            f"A{row}"
+        ].value
+
+        if metric in [
+            "Total Spend",
+            "Optimization Exposure",
+            "Rightsizing Exposure",
+            "Estimated Savings"
+        ]:
+
+            savings_intelligence_sheet[
+                f"B{row}"
+            ].number_format = '₹#,##0.00'
+
+        elif metric == "Savings Percentage":
+
+            savings_intelligence_sheet[
+                f"B{row}"
+            ].number_format = "0.00"
+
+    auto_adjust_columns(
+        savings_intelligence_sheet
+    )
+
+    add_table(
+        savings_intelligence_sheet,
+        "SavingsIntelligence"
+    )
+
+
+    # ========================================
+    # 10. SERVICE SAVINGS
+    # ========================================
+
+    service_savings_sheet = workbook.create_sheet(
+        "Service Savings"
+    )
+
+    service_savings_sheet.append([
+        "Service",
+        "Resource Count",
+        "Cost Exposure",
+        "Estimated Savings"
+    ])
+
+    if savings_intelligence is not None:
+
+        service_savings = (
+            savings_intelligence[
+                "service_savings"
+            ]
+        )
+
+        if (
+            service_savings is not None
+            and not service_savings.empty
+        ):
+
+            for service, row in service_savings.iterrows():
+
+                service_savings_sheet.append([
+                    service,
+                    int(
+                        row["resource_count"]
+                    ),
+                    float(
+                        row["cost_exposure"]
+                    ),
+                    float(
+                        row["estimated_savings"]
+                    )
+                ])
+
+    format_header(
+        service_savings_sheet
+    )
+
+    service_savings_sheet.freeze_panes = "A2"
+
+    for row in range(
+        2,
+        service_savings_sheet.max_row + 1
+    ):
+
+        service_savings_sheet[
+            f"C{row}"
+        ].number_format = '₹#,##0.00'
+
+        service_savings_sheet[
+            f"D{row}"
+        ].number_format = '₹#,##0.00'
+
+    auto_adjust_columns(
+        service_savings_sheet
+    )
+
+    add_table(
+        service_savings_sheet,
+        "ServiceSavings"
+    )
+
+
+    # ========================================
+    # 11. BUSINESS UNIT SAVINGS
+    # ========================================
+
+    business_unit_savings_sheet = workbook.create_sheet(
+        "Business Unit Savings"
+    )
+
+    business_unit_savings_sheet.append([
+        "Business Unit",
+        "Resource Count",
+        "Cost Exposure",
+        "Estimated Savings"
+    ])
+
+    if savings_intelligence is not None:
+
+        business_unit_savings = (
+            savings_intelligence[
+                "business_unit_savings"
+            ]
+        )
+
+        if (
+            business_unit_savings is not None
+            and not business_unit_savings.empty
+        ):
+
+            for business_unit, row in (
+                business_unit_savings.iterrows()
+            ):
+
+                business_unit_savings_sheet.append([
+                    business_unit,
+                    int(
+                        row["resource_count"]
+                    ),
+                    float(
+                        row["cost_exposure"]
+                    ),
+                    float(
+                        row["estimated_savings"]
+                    )
+                ])
+
+    format_header(
+        business_unit_savings_sheet
+    )
+
+    business_unit_savings_sheet.freeze_panes = "A2"
+
+    for row in range(
+        2,
+        business_unit_savings_sheet.max_row + 1
+    ):
+
+        business_unit_savings_sheet[
+            f"C{row}"
+        ].number_format = '₹#,##0.00'
+
+        business_unit_savings_sheet[
+            f"D{row}"
+        ].number_format = '₹#,##0.00'
+
+    auto_adjust_columns(
+        business_unit_savings_sheet
+    )
+
+    add_table(
+        business_unit_savings_sheet,
+        "BusinessUnitSavings"
+    )
+
+
+    # ========================================
+    # 12. TOP SAVINGS OPPORTUNITIES
+    # ========================================
+
+    top_savings_sheet = workbook.create_sheet(
+        "Top Savings Opportunities"
+    )
+
+    top_savings_sheet.append([
+        "Rank",
+        "Resource ID",
+        "Service",
+        "Business Unit",
+        "Resource Status",
+        "CPU Utilization",
+        "Monthly Cost",
+        "Estimated Savings",
+        "Priority",
+        "Recommendation"
+    ])
+
+    if savings_intelligence is not None:
+
+        top_opportunities = (
+            savings_intelligence[
+                "top_opportunities"
+            ]
+        )
+
+        if (
+            top_opportunities is not None
+            and not top_opportunities.empty
+        ):
+
+            for _, row in top_opportunities.iterrows():
+
+                top_savings_sheet.append([
+                    int(
+                        row["Savings_Rank"]
+                    ),
+                    row["Resource_ID"],
+                    row["Service"],
+                    row["Business_Unit"],
+                    row["Resource_Status"],
+                    float(
+                        row["CPU_Utilization"]
+                    ),
+                    float(
+                        row["Monthly_Cost"]
+                    ),
+                    float(
+                        row["Estimated_Savings"]
+                    ),
+                    row["Priority"],
+                    row["Recommendation"]
+                ])
+
+    format_header(
+        top_savings_sheet
+    )
+
+    top_savings_sheet.freeze_panes = "A2"
+
+    for row in range(
+        2,
+        top_savings_sheet.max_row + 1
+    ):
+
+        top_savings_sheet[
+            f"F{row}"
+        ].number_format = "0.00"
+
+        top_savings_sheet[
+            f"G{row}"
+        ].number_format = '₹#,##0.00'
+
+        top_savings_sheet[
+            f"H{row}"
+        ].number_format = '₹#,##0.00'
+
+    auto_adjust_columns(
+        top_savings_sheet
+    )
+
+    add_table(
+        top_savings_sheet,
+        "TopSavingsOpportunities"
+    )
+
 
     # ========================================
     # SAVE

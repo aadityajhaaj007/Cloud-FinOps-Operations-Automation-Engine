@@ -27,6 +27,10 @@ from src.anomaly_detector import (
     detect_anomalies,
     generate_anomaly_summary
 )
+from src.cost_intelligence import (
+    calculate_savings_intelligence
+)
+
 from src.execution import (
     create_run_id,
     start_timer,
@@ -321,8 +325,51 @@ def main():
     anomaly_summary = generate_anomaly_summary(
     anomalies
 )
+        # ----------------------------------------
+    # 14. Cost savings intelligence
+    # ----------------------------------------
 
+    savings_intelligence = calculate_savings_intelligence(
+        df,
+        cpu_threshold,
+        savings_assumption
+    )
+    print()
+    print("=" * 50)
+    print("COST SAVINGS INTELLIGENCE")
+    print("=" * 50)
 
+    print(
+        f"Total spend:             "
+        f"₹{savings_intelligence['total_spend']:,.2f}"
+    )
+
+    print(
+        f"Optimization exposure:   "
+        f"₹{savings_intelligence['optimization_exposure']:,.2f}"
+    )
+
+    print(
+        f"Rightsizing exposure:    "
+        f"₹{savings_intelligence['rightsizing_exposure']:,.2f}"
+    )
+
+    print(
+        f"Estimated savings:       "
+        f"₹{savings_intelligence['estimated_savings']:,.2f}"
+    )
+
+    print(
+        f"Savings opportunity:     "
+        f"{savings_intelligence['savings_percentage']:.2f}%"
+    )
+
+    print(
+        f"Rightsizing candidates:  "
+        f"{savings_intelligence['rightsizing_count']}"
+    )
+
+    print("=" * 50)
     print()
     print("=" * 50)
     print("ANOMALY DETECTION")
@@ -391,7 +438,8 @@ def main():
     validation_summary,
     reconciliation_result,
     execution_metadata,
-    anomaly_summary
+    anomaly_summary,
+    savings_intelligence
 )
 
     print()
@@ -411,7 +459,8 @@ def main():
     cpu_threshold,
     savings_assumption,
     anomaly_summary,
-    anomalies
+    anomalies,
+    savings_intelligence
 )
 
     print()
