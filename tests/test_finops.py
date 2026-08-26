@@ -44,6 +44,9 @@ from src.cost_intelligence import (
 from src.action_register import (
     generate_action_register,
 )
+from src.governance_intelligence import (
+    calculate_governance_intelligence
+)
 
 class TestFinOpsPipeline(unittest.TestCase):
 
@@ -239,6 +242,155 @@ class TestFinOpsPipeline(unittest.TestCase):
         self.assertIn(
             "SLA_Status",
             governed.columns
+        )
+        # ========================================
+    # V1.4 GOVERNANCE INTELLIGENCE
+    # ========================================
+
+    def test_governance_intelligence_summary(self):
+
+        action_register = pd.DataFrame([
+            {
+                "Action_ID": "FIN-0001",
+                "Priority": "HIGH",
+                "Estimated_Savings": 8873.10,
+                "Action_Status": "OPEN",
+                "SLA_Status": "ON_TRACK"
+            },
+            {
+                "Action_ID": "FIN-0002",
+                "Priority": "MEDIUM",
+                "Estimated_Savings": 5000.00,
+                "Action_Status": "OPEN",
+                "SLA_Status": "OVERDUE"
+            },
+            {
+                "Action_ID": "FIN-0003",
+                "Priority": "HIGH",
+                "Estimated_Savings": 3000.00,
+                "Action_Status": "COMPLETED",
+                "SLA_Status": "COMPLETED_ON_TIME"
+            }
+        ])
+
+        result = calculate_governance_intelligence(
+            action_register
+        )
+
+        self.assertEqual(
+            result["total_actions"],
+            3
+        )
+
+        self.assertEqual(
+            result["open_actions"],
+            2
+        )
+
+        self.assertEqual(
+            result["completed_actions"],
+            1
+        )
+
+        self.assertEqual(
+            result["on_track_actions"],
+            1
+        )
+
+        self.assertEqual(
+            result["overdue_actions"],
+            1
+        )
+
+        self.assertEqual(
+            result["high_priority_actions"],
+            2
+        )
+
+        self.assertEqual(
+            result["medium_priority_actions"],
+            1
+        )
+
+
+    def test_governance_intelligence_savings(self):
+
+        action_register = pd.DataFrame([
+            {
+                "Action_ID": "FIN-0001",
+                "Priority": "HIGH",
+                "Estimated_Savings": 8873.10,
+                "Action_Status": "OPEN",
+                "SLA_Status": "ON_TRACK"
+            },
+            {
+                "Action_ID": "FIN-0002",
+                "Priority": "HIGH",
+                "Estimated_Savings": 5000.00,
+                "Action_Status": "OPEN",
+                "SLA_Status": "OVERDUE"
+            }
+        ])
+
+        result = calculate_governance_intelligence(
+            action_register
+        )
+
+        self.assertEqual(
+            result["total_estimated_savings"],
+            13873.10
+        )
+
+        self.assertEqual(
+            result["open_savings_exposure"],
+            13873.10
+        )
+
+        self.assertEqual(
+            result["overdue_savings_exposure"],
+            5000.00
+        )
+
+
+    def test_governance_intelligence_empty_register(self):
+
+        action_register = pd.DataFrame(
+            columns=[
+                "Action_ID",
+                "Priority",
+                "Estimated_Savings",
+                "Action_Status",
+                "SLA_Status"
+            ]
+        )
+
+        result = calculate_governance_intelligence(
+            action_register
+        )
+
+        self.assertEqual(
+            result["total_actions"],
+            0
+        )
+
+        self.assertEqual(
+            result["open_actions"],
+            0
+        )
+
+        self.assertEqual(
+            result["completed_actions"],
+            0
+        )
+
+        self.assertEqual(
+            result["total_estimated_savings"],
+            0.0
+        )
+
+        self.assertEqual(
+            result["sla_compliance_percentage"],
+            100.0
         )
 
     # ========================================

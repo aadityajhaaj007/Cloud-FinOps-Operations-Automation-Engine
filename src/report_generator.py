@@ -10,7 +10,8 @@ def generate_json_report(
     execution_metadata,
     anomaly_summary=None,
     savings_intelligence=None,
-    action_register=None
+    action_register=None,
+    governance_intelligence=None
 ):
 
     if anomaly_summary is None:
@@ -114,6 +115,11 @@ def generate_json_report(
     else:
         action_register_report = []
 
+    if governance_intelligence is None:
+        governance_report = {}
+    else:
+        governance_report = governance_intelligence
+
     report = {
         "execution": execution_metadata,
         "kpis": kpi_summary,
@@ -121,7 +127,8 @@ def generate_json_report(
         "reconciliation": reconciliation_result,
         "anomalies": anomaly_summary,
         "savings_intelligence": savings_report,
-        "action_register": action_register_report
+        "action_register": action_register_report,
+        "governance_intelligence": governance_report
     }
 
     output_file = Path(output_path)

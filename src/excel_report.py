@@ -90,7 +90,8 @@ def generate_excel_report(
     anomaly_summary=None,
     anomalies=None,
     savings_intelligence=None,
-    action_register=None
+    action_register=None,
+    governance_intelligence=None
 ):
 
     output_file = Path(output_path)
@@ -1169,6 +1170,164 @@ def generate_excel_report(
         action_register_sheet,
         "SavingsActionRegister"
     )
+
+
+
+    # ========================================
+    # 14. GOVERNANCE INTELLIGENCE
+    # ========================================
+
+    governance_sheet = workbook.create_sheet(
+        "Governance Intelligence"
+    )
+
+    governance_sheet.append([
+        "Governance KPI",
+        "Value"
+    ])
+
+    if governance_intelligence is None:
+        governance_intelligence = {}
+
+    governance_metrics = [
+        (
+            "Total Actions",
+            governance_intelligence.get(
+                "total_actions",
+                0
+            )
+        ),
+        (
+            "Open Actions",
+            governance_intelligence.get(
+                "open_actions",
+                0
+            )
+        ),
+        (
+            "Completed Actions",
+            governance_intelligence.get(
+                "completed_actions",
+                0
+            )
+        ),
+        (
+            "On Track Actions",
+            governance_intelligence.get(
+                "on_track_actions",
+                0
+            )
+        ),
+        (
+            "At Risk Actions",
+            governance_intelligence.get(
+                "at_risk_actions",
+                0
+            )
+        ),
+        (
+            "Overdue Actions",
+            governance_intelligence.get(
+                "overdue_actions",
+                0
+            )
+        ),
+        (
+            "Escalated Actions",
+            governance_intelligence.get(
+                "escalated_actions",
+                0
+            )
+        ),
+        (
+            "High Priority Actions",
+            governance_intelligence.get(
+                "high_priority_actions",
+                0
+            )
+        ),
+        (
+            "Medium Priority Actions",
+            governance_intelligence.get(
+                "medium_priority_actions",
+                0
+            )
+        ),
+        (
+            "Total Estimated Savings",
+            governance_intelligence.get(
+                "total_estimated_savings",
+                0.0
+            )
+        ),
+        (
+            "Open Savings Exposure",
+            governance_intelligence.get(
+                "open_savings_exposure",
+                0.0
+            )
+        ),
+        (
+            "Overdue Savings Exposure",
+            governance_intelligence.get(
+                "overdue_savings_exposure",
+                0.0
+            )
+        ),
+        (
+            "SLA Compliance %",
+            governance_intelligence.get(
+                "sla_compliance_percentage",
+                100.0
+            )
+        )
+    ]
+
+    for metric, value in governance_metrics:
+
+        governance_sheet.append([
+            metric,
+            value
+        ])
+
+    format_header(
+        governance_sheet
+    )
+
+    governance_sheet.freeze_panes = "A2"
+
+    # Currency formatting
+    for row in range(
+        2,
+        governance_sheet.max_row + 1
+    ):
+
+        metric_name = governance_sheet[
+            f"A{row}"
+        ].value
+
+        if metric_name in [
+            "Total Estimated Savings",
+            "Open Savings Exposure",
+            "Overdue Savings Exposure"
+        ]:
+
+            governance_sheet[
+                f"B{row}"
+            ].number_format = '₹#,##0.00'
+
+        elif metric_name == "SLA Compliance %":
+
+            governance_sheet[
+                f"B{row}"
+            ].number_format = '0.00'
+
+    auto_adjust_columns(
+        governance_sheet
+    )
+
+
+
 
 
     # ========================================

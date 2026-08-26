@@ -36,6 +36,9 @@ from src.action_register import (
 from src.action_governance import (
     apply_action_governance
 )
+from src.governance_intelligence import (
+    calculate_governance_intelligence
+)
 
 from src.execution import (
     create_run_id,
@@ -401,6 +404,10 @@ def main():
         target_days=7
 )
 
+    governance_intelligence = calculate_governance_intelligence(
+        action_register
+)
+
     print()
     print("=" * 50)
     print("SAVINGS ACTION REGISTER")
@@ -461,6 +468,81 @@ def main():
     )
 
     print("=" * 50)
+
+    governance_intelligence = calculate_governance_intelligence(
+        action_register
+
+)
+
+    print()
+    print("=" * 50)
+    print("GOVERNANCE INTELLIGENCE")
+    print("=" * 50)
+
+    print(
+        f"Total actions:              "
+        f"{governance_intelligence['total_actions']}"
+)
+
+    print(
+        f"Open actions:               "
+        f"{governance_intelligence['open_actions']}"
+)
+
+    print(
+        f"Completed actions:          "
+        f"{governance_intelligence['completed_actions']}"
+)
+
+    print(
+        f"On-track actions:           "
+        f"{governance_intelligence['on_track_actions']}"
+)
+
+    print(
+        f"At-risk actions:            "
+        f"{governance_intelligence['at_risk_actions']}"
+)
+
+    print(
+        f"Overdue actions:            "
+        f"{governance_intelligence['overdue_actions']}"
+)
+
+    print(
+        f"Escalated actions:          "
+        f"{governance_intelligence['escalated_actions']}"
+)
+
+    print(
+        f"High-priority actions:      "
+        f"{governance_intelligence['high_priority_actions']}"
+)
+
+    print(
+        f"Medium-priority actions:    "
+        f"{governance_intelligence['medium_priority_actions']}"
+)
+
+    print(
+        f"Open savings exposure:      "
+        f"₹{governance_intelligence['open_savings_exposure']:,.2f}"
+)
+
+    print(
+        f"Overdue savings exposure:   "
+        f"₹{governance_intelligence['overdue_savings_exposure']:,.2f}"
+)
+
+    print(
+        f"SLA compliance:             "
+        f"{governance_intelligence['sla_compliance_percentage']:.2f}%"
+)
+
+    print("=" * 50)
+
+
+
     # ----------------------------------------
     # 14. Calculate execution duration
     # ----------------------------------------
@@ -504,7 +586,8 @@ def main():
     execution_metadata,
     anomaly_summary,
     savings_intelligence,
-    action_register
+    action_register,
+    governance_intelligence
 )
 
     print()
@@ -516,16 +599,18 @@ def main():
 # ----------------------------------------
 
     excel_report_path = generate_excel_report(
-    "output/finops_report.xlsx",
-    df,
-    kpi_summary,
-    validation_summary,
-    reconciliation_result,
-    cpu_threshold,
-    savings_assumption,
-    anomaly_summary,
-    anomalies,
-    savings_intelligence
+        output_path="output/finops_report.xlsx",
+        df=df,
+        kpi_summary=kpi_summary,
+        validation_summary=validation_summary,
+        reconciliation_result=reconciliation_result,
+        cpu_threshold=cpu_threshold,
+        savings_assumption=savings_assumption,
+        anomaly_summary=anomaly_summary,
+        anomalies=anomalies,
+        savings_intelligence=savings_intelligence,
+        action_register=action_register,
+        governance_intelligence=governance_intelligence
 )
 
     print()
