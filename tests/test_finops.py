@@ -1,5 +1,16 @@
 import unittest
+from datetime import datetime
+
 import pandas as pd
+
+from src.scheduler import (
+    ScheduleConfig,
+    calculate_next_run,
+    is_schedule_due,
+    execute_scheduled_run,
+    run_scheduler_cycle,
+)
+
 
 from src.action_governance import (
     apply_action_governance
@@ -392,6 +403,265 @@ class TestFinOpsPipeline(unittest.TestCase):
             result["sla_compliance_percentage"],
             100.0
         )
+
+        # ========================================
+    # V1.5 FINOPS SCHEDULING
+    # ========================================
+
+    def test_scheduler_config(self):
+
+        config = ScheduleConfig(
+            interval_minutes=60
+        )
+
+        self.assertEqual(
+            config.interval_minutes,
+            60
+        )
+
+        self.assertTrue(
+            config.enabled
+        )
+
+
+    def test_scheduler_invalid_interval(self):
+
+        with self.assertRaises(
+            ValueError
+        ):
+
+            ScheduleConfig(
+                interval_minutes=0
+            )
+
+
+    def test_scheduler_next_run(self):
+
+        last_run = datetime(
+            2026,
+            8,
+            27,
+            10,
+            0
+        )
+
+        next_run = calculate_next_run(
+            last_run,
+            60
+        )
+
+        self.assertEqual(
+            next_run,
+            datetime(
+                2026,
+                8,
+                27,
+                11,
+                0
+            )
+        )
+
+
+    def test_scheduler_due(self):
+
+        current_time = datetime(
+            2026,
+            8,
+            27,
+            11,
+            0
+        )
+
+        next_run = datetime(
+            2026,
+            8,
+            27,
+            11,
+            0
+        )
+
+        self.assertTrue(
+            is_schedule_due(
+                current_time,
+                next_run
+            )
+        )
+
+
+    def test_scheduler_not_due(self):
+
+        current_time = datetime(
+            2026,
+            8,
+            27,
+            10,
+            30
+        )
+
+        next_run = datetime(
+            2026,
+            8,
+            27,
+            11,
+            0
+        )
+
+        self.assertFalse(
+            is_schedule_due(
+                current_time,
+                next_run
+            )
+        )
+
+
+    def test_scheduler_executes_pipeline(self):
+
+        execution_log = []
+
+        def fake_pipeline():
+
+            execution_log.append(
+                "executed"
+            )
+
+            return "SUCCESS"
+
+        result = execute_scheduled_run(
+            fake_pipeline
+        )
+
+        self.assertEqual(
+            result,
+            "SUCCESS"
+        )
+
+        self.assertEqual(
+            execution_log,
+            ["executed"]
+        )
+
+
+    def test_scheduler_cycle_due(self):
+
+        config = ScheduleConfig(
+            interval_minutes=60
+        )
+
+        current_time = datetime(
+            2026,
+            8,
+            27,
+            11,
+            0
+        )
+
+        last_run = datetime(
+            2026,
+            8,
+            27,
+            10,
+            0
+        )
+
+        result, next_run = run_scheduler_cycle(
+            current_time,
+            last_run,
+            config,
+            lambda: "SUCCESS"
+        )
+
+        self.assertEqual(
+            result,
+            "SUCCESS"
+        )
+
+        self.assertEqual(
+            next_run,
+            datetime(
+                2026,
+                8,
+                27,
+                12,
+                0
+            )
+        )
+
+
+    def test_scheduler_cycle_not_due(self):
+
+        config = ScheduleConfig(
+            interval_minutes=60
+        )
+
+        current_time = datetime(
+            2026,
+            8,
+            27,
+            10,
+            30
+        )
+
+        last_run = datetime(
+            2026,
+            8,
+            27,
+            10,
+            0
+        )
+
+        result, next_run = run_scheduler_cycle(
+            current_time,
+            last_run,
+            config,
+            lambda: "SUCCESS"
+        )
+
+        self.assertIsNone(
+            result
+        )
+
+        self.assertEqual(
+            next_run,
+            datetime(
+                2026,
+                8,
+                27,
+                11,
+                0
+            )
+        )
+
+
+    def test_scheduler_disabled(self):
+
+        config = ScheduleConfig(
+            interval_minutes=60,
+            enabled=False
+        )
+
+        current_time = datetime(
+            2026,
+            8,
+            27,
+            11,
+            0
+        )
+
+        result, next_run = run_scheduler_cycle(
+            current_time,
+            None,
+            config,
+            lambda: "SUCCESS"
+        )
+
+        self.assertIsNone(
+            result
+        )
+
+        self.assertIsNone(
+            next_run
+        )
+
 
     # ========================================
     # DATA VALIDATION
