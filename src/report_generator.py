@@ -11,7 +11,8 @@ def generate_json_report(
     anomaly_summary=None,
     savings_intelligence=None,
     action_register=None,
-    governance_intelligence=None
+    governance_intelligence=None,
+    operational_alerts=None
 ):
 
     if anomaly_summary is None:
@@ -120,6 +121,21 @@ def generate_json_report(
     else:
         governance_report = governance_intelligence
 
+    if operational_alerts is None:
+        operational_alerts_report = []
+
+    elif hasattr(
+        operational_alerts,
+        "to_dict"
+    ):
+        operational_alerts_report = (
+            operational_alerts
+            .to_dict(orient="records")
+        )
+
+    else:
+        operational_alerts_report = operational_alerts
+
     report = {
         "execution": execution_metadata,
         "kpis": kpi_summary,
@@ -128,7 +144,8 @@ def generate_json_report(
         "anomalies": anomaly_summary,
         "savings_intelligence": savings_report,
         "action_register": action_register_report,
-        "governance_intelligence": governance_report
+        "governance_intelligence": governance_report,
+        "operational_alerts": operational_alerts_report
     }
 
     output_file = Path(output_path)

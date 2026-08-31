@@ -59,6 +59,10 @@ from src.governance_intelligence import (
     calculate_governance_intelligence
 )
 
+from src.alert_engine import (
+    generate_operational_alerts
+)
+
 class TestFinOpsPipeline(unittest.TestCase):
 
     def setUp(self):
@@ -1277,6 +1281,284 @@ class TestFinOpsPipeline(unittest.TestCase):
             3000.0,
             places=2
         )
+
+    # ========================================
+    # V1.6 OPERATIONAL ALERTING
+    # ========================================
+
+    def test_operational_alerts_empty_register(self):
+
+        alerts = generate_operational_alerts(
+            pd.DataFrame()
+        )
+
+        self.assertTrue(
+            alerts.empty
+        )
+
+        expected_columns = [
+            "Alert_ID",
+            "Alert_Type",
+            "Severity",
+            "Action_ID",
+            "Resource_ID",
+            "Owner",
+            "Priority",
+            "Estimated_Savings",
+            "Message",
+            "Alert_Status",
+            "Created_Date"
+        ]
+
+        self.assertEqual(
+            list(alerts.columns),
+            expected_columns
+        )
+
+
+    def test_operational_alerts_overdue(self):
+
+        action_register = pd.DataFrame([
+            {
+                "Action_ID": "FIN-0001",
+                "Resource_ID": "res-001",
+                "Owner": "Owner_1",
+                "Priority": "HIGH",
+                "Estimated_Savings": 8000,
+                "Action_Status": "OPEN",
+                "SLA_Status": "OVERDUE",
+                "Created_Date": "2026-08-27"
+            }
+        ])
+
+        alerts = generate_operational_alerts(
+            action_register
+        )
+
+        overdue = alerts[
+            alerts["Alert_Type"] == "OVERDUE_ACTION"
+        ]
+
+        self.assertEqual(
+            len(overdue),
+            1
+        )
+
+        self.assertEqual(
+            overdue.iloc[0]["Severity"],
+            "CRITICAL"
+        )
+
+
+    def test_operational_alerts_at_risk(self):
+
+        action_register = pd.DataFrame([
+            {
+                "Action_ID": "FIN-0002",
+                "Resource_ID": "res-002",
+                "Owner": "Owner_2",
+                "Priority": "HIGH",
+                "Estimated_Savings": 6000,
+                "Action_Status": "OPEN",
+                "SLA_Status": "AT_RISK",
+                "Created_Date": "2026-08-27"
+            }
+        ])
+
+        alerts = generate_operational_alerts(
+            action_register
+        )
+
+        at_risk = alerts[
+            alerts["Alert_Type"] == "AT_RISK_ACTION"
+        ]
+
+        self.assertEqual(
+            len(at_risk),
+            1
+        )
+
+        self.assertEqual(
+            at_risk.iloc[0]["Severity"],
+            "HIGH"
+        )
+
+
+    def test_operational_alerts_escalated(self):
+
+        action_register = pd.DataFrame([
+            {
+                "Action_ID": "FIN-0003",
+                "Resource_ID": "res-003",
+                "Owner": "Owner_3",
+                "Priority": "HIGH",
+                "Estimated_Savings": 7000,
+                "Action_Status": "OPEN",
+                "SLA_Status": "ESCALATED",
+                "Created_Date": "2026-08-27"
+            }
+        ])
+
+        alerts = generate_operational_alerts(
+            action_register
+        )
+
+        escalated = alerts[
+            alerts["Alert_Type"] == "ESCALATED_ACTION"
+        ]
+
+        self.assertEqual(
+            len(escalated),
+            1
+        )
+
+        self.assertEqual(
+            escalated.iloc[0]["Severity"],
+            "CRITICAL"
+        )
+
+
+    def test_operational_alerts_high_value_savings(self):
+
+        action_register = pd.DataFrame([
+            {
+                "Action_ID": "FIN-0004",
+                "Resource_ID": "res-004",
+                "Owner": "Owner_4",
+                "Priority": "HIGH",
+                "Estimated_Savings": 9000,
+                "Action_Status": "OPEN",
+                "SLA_Status": "ON_TRACK",
+                "Created_Date": "2026-08-27"
+            }
+        ])
+
+        alerts = generate_operational_alerts(
+            action_register,
+            high_value_threshold=5000
+        )
+
+        high_value = alerts[
+            alerts["Alert_Type"] == "HIGH_VALUE_SAVINGS"
+        ]
+
+        self.assertEqual(
+            len(high_value),
+            1
+        )
+
+        self.assertEqual(
+            high_value.iloc[0]["Estimated_Savings"],
+            9000
+        )
+
+
+    def test_operational_alerts_completed_action(self):
+
+        action_register = pd.DataFrame([
+            {
+                "Action_ID": "FIN-0005",
+                "Resource_ID": "res-005",
+                "Owner": "Owner_5",
+                "Priority": "HIGH",
+                "Estimated_Savings": 9000,
+                "Action_Status": "COMPLETED",
+                "SLA_Status": "ON_TRACK",
+                "Created_Date": "2026-08-27"
+            }
+        ])
+
+        alerts = generate_operational_alerts(
+            action_register
+        )
+
+        self.assertTrue(
+            alerts.empty
+        )
+
+
+    def test_operational_alerts_multiple_alerts(self):
+
+        action_register = pd.DataFrame([
+            {
+                "Action_ID": "FIN-0006",
+                "Resource_ID": "res-006",
+                "Owner": "Owner_6",
+                "Priority": "HIGH",
+                "Estimated_Savings": 10000,
+                "Action_Status": "OPEN",
+                "SLA_Status": "OVERDUE",
+                "Created_Date": "2026-08-27"
+            }
+        ])
+
+        alerts = generate_operational_alerts(
+            action_register
+        )
+
+        self.assertEqual(
+            len(alerts),
+            2
+        )
+
+        alert_types = set(
+            alerts["Alert_Type"]
+        )
+
+        self.assertIn(
+            "OVERDUE_ACTION",
+            alert_types
+        )
+
+        self.assertIn(
+            "HIGH_VALUE_SAVINGS",
+            alert_types
+        )
+
+
+    def test_operational_alerts_ids(self):
+
+        action_register = pd.DataFrame([
+            {
+                "Action_ID": "FIN-0010",
+                "Resource_ID": "res-010",
+                "Owner": "Owner_10",
+                "Priority": "MEDIUM",
+                "Estimated_Savings": 6000,
+                "Action_Status": "OPEN",
+                "SLA_Status": "ON_TRACK",
+                "Created_Date": "2026-08-27"
+            },
+            {
+                "Action_ID": "FIN-0011",
+                "Resource_ID": "res-011",
+                "Owner": "Owner_11",
+                "Priority": "HIGH",
+                "Estimated_Savings": 7000,
+                "Action_Status": "OPEN",
+                "SLA_Status": "ON_TRACK",
+                "Created_Date": "2026-08-27"
+            }
+        ])
+
+        alerts = generate_operational_alerts(
+            action_register
+        )
+
+        alert_ids = list(
+            alerts["Alert_ID"]
+        )
+
+        self.assertEqual(
+            alert_ids[0],
+            "ALT-0001"
+        )
+
+        self.assertEqual(
+            alert_ids[1],
+            "ALT-0002"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
