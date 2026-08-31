@@ -1,3 +1,6 @@
+import sys
+from datetime import datetime
+
 from src.config import load_config
 
 from src.data_loader import load_cost_data
@@ -46,10 +49,19 @@ from src.execution import (
     calculate_duration
 )
 
+from src.scheduler import (
+    ScheduleConfig,
+    calculate_next_run,
+    is_schedule_due,
+    execute_scheduled_run,
+    run_scheduler_cycle
+)
 
 DATA_FILE = "data/input/aws_cost.csv"
 CONTROL_FILE = "data/reference/billing_control.csv"
 
+SCHEDULER_INTERVAL_MINUTES = 60
+SCHEDULER_ENABLED = True
 
 def main():
 
@@ -675,13 +687,60 @@ def main():
     )
 
 
-# ----------------------------------------
-# Application entry point
-# ----------------------------------------
-
 if __name__ == "__main__":
+
     try:
-        main()
+
+        # ----------------------------------------
+        # Application mode
+        # ----------------------------------------
+
+        if "--scheduled" not in sys.argv:
+
+            main()
+
+        else:
+
+            # ----------------------------------------
+            # Scheduled execution
+            # ----------------------------------------
+
+            scheduler_config = ScheduleConfig(
+                interval_minutes=SCHEDULER_INTERVAL_MINUTES,
+                enabled=SCHEDULER_ENABLED
+            )
+
+            now = datetime.now()
+
+            result, next_run = run_scheduler_cycle(
+                current_time=now,
+                last_run=None,
+                config=scheduler_config,
+                pipeline_function=main
+            )
+
+            print()
+            print("=" * 50)
+            print("SCHEDULER")
+            print("=" * 50)
+
+            if result is not None:
+
+                print(
+                    "Status: EXECUTED"
+                )
+
+                print(
+                    f"Next run: {next_run}"
+                )
+
+            else:
+
+                print(
+                    "Status: NOT DUE"
+                )
+
+            print("=" * 50)
 
     except Exception as error:
 
