@@ -216,23 +216,28 @@ class TestFinOpsPipeline(unittest.TestCase):
     def test_action_governance_status(self):
 
         action_register = pd.DataFrame([
-            {
-                "Action_ID": "FIN-0001",
-                "Priority": "HIGH",
-                "Estimated_Savings": 8873.10
-            }
-        ])
+           {
+            "Action_ID": "FIN-0001",
+            "Priority": "HIGH",
+            "Estimated_Savings": 8873.10
+        }
+       ])
+
+        created_date = (
+            pd.Timestamp.today().normalize()
+            - pd.Timedelta(days=1)
+    )
 
         governed = apply_action_governance(
-            action_register,
-            created_date="2026-08-25",
-            target_days=7
-        )
+           action_register,
+           created_date=created_date,
+           target_days=7
+    )
 
         self.assertEqual(
             governed.iloc[0]["SLA_Status"],
             "ON_TRACK"
-        )
+    )
 
     def test_action_governance_empty_register(self):
 
