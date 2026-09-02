@@ -682,6 +682,17 @@ class TestFinOpsPipeline(unittest.TestCase):
 
         self.assertTrue(result)
 
+
+    def test_missing_required_column(self):
+
+        incomplete_df = self.df.drop(
+            columns=["Monthly_Cost"]
+    )
+
+        with self.assertRaises(ValueError):
+            validate_required_columns(incomplete_df)
+
+
     def test_missing_values(self):
 
         result = validate_missing_values(self.df)

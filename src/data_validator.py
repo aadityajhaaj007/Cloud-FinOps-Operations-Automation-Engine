@@ -1,6 +1,21 @@
 import pandas as pd
 
-REQUIRED_COLUMNS =ALLOWED_VALUES = {
+REQUIRED_COLUMNS = [
+    "Date",
+    "Resource_ID",
+    "Service",
+    "Region",
+    "Business_Unit",
+    "Environment",
+    "CPU_Utilization",
+    "Storage_GB",
+    "Monthly_Cost",
+    "Owner",
+    "Resource_Status"
+]
+
+
+ALLOWED_VALUES = {
     "Service": [
         "CloudFront",
         "EBS",
@@ -21,20 +36,6 @@ REQUIRED_COLUMNS =ALLOWED_VALUES = {
         "Stopped"
     ]
 }
-
-[
-    "Date",
-    "Resource_ID",
-    "Service",
-    "Region",
-    "Business_Unit",
-    "Environment",
-    "CPU_Utilization",
-    "Storage_GB",
-    "Monthly_Cost",
-    "Owner",
-    "Resource_Status"
-]
 
 
 def validate_required_columns(df):
