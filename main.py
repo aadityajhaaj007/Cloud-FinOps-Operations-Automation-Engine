@@ -43,6 +43,10 @@ from src.governance_intelligence import (
     calculate_governance_intelligence
 )
 
+from src.alert_engine import (
+    generate_operational_alerts
+)
+
 from src.execution import (
     create_run_id,
     start_timer,
@@ -553,7 +557,42 @@ def main():
 
     print("=" * 50)
 
+    # ----------------------------------------
+    # 15.5 Operational alerting
+    # ----------------------------------------
 
+    operational_alerts = generate_operational_alerts(
+        action_register
+    )
+
+    print()
+    print("=" * 50)
+    print("OPERATIONAL ALERTING")
+    print("=" * 50)
+
+    print(
+        f"Total alerts:              "
+        f"{len(operational_alerts)}"
+    )
+
+    if not operational_alerts.empty:
+
+        print(
+            operational_alerts[
+                [
+                    "Alert_ID",
+                    "Alert_Type",
+                    "Severity",
+                    "Action_ID",
+                    "Estimated_Savings",
+                    "Alert_Status"
+                ]
+            ]
+            .head(10)
+            .to_string(index=False)
+        )
+
+    print("=" * 50)
 
     # ----------------------------------------
     # 14. Calculate execution duration
@@ -599,7 +638,8 @@ def main():
     anomaly_summary,
     savings_intelligence,
     action_register,
-    governance_intelligence
+    governance_intelligence,
+    operational_alerts
 )
 
     print()
@@ -622,7 +662,9 @@ def main():
         anomalies=anomalies,
         savings_intelligence=savings_intelligence,
         action_register=action_register,
-        governance_intelligence=governance_intelligence
+        governance_intelligence=governance_intelligence,
+        operational_alerts=operational_alerts
+
 )
 
     print()

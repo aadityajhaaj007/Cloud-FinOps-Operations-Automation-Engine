@@ -91,7 +91,8 @@ def generate_excel_report(
     anomalies=None,
     savings_intelligence=None,
     action_register=None,
-    governance_intelligence=None
+    governance_intelligence=None,
+    operational_alerts=None
 ):
 
     output_file = Path(output_path)
@@ -1327,7 +1328,74 @@ def generate_excel_report(
     )
 
 
+        # ========================================
+    # 14. OPERATIONAL ALERTS
+    # ========================================
 
+    alerts_sheet = workbook.create_sheet(
+        "Operational Alerts"
+    )
+
+    alerts_sheet.append([
+        "Alert ID",
+        "Alert Type",
+        "Severity",
+        "Action ID",
+        "Resource ID",
+        "Owner",
+        "Priority",
+        "Estimated Savings",
+        "Message",
+        "Alert Status",
+        "Created Date"
+    ])
+
+    if (
+        operational_alerts is not None
+        and not operational_alerts.empty
+    ):
+
+        for _, row in operational_alerts.iterrows():
+
+            alerts_sheet.append([
+                row["Alert_ID"],
+                row["Alert_Type"],
+                row["Severity"],
+                row["Action_ID"],
+                row["Resource_ID"],
+                row["Owner"],
+                row["Priority"],
+                float(
+                    row["Estimated_Savings"]
+                ),
+                row["Message"],
+                row["Alert_Status"],
+                row["Created_Date"]
+            ])
+
+    format_header(
+        alerts_sheet
+    )
+
+    alerts_sheet.freeze_panes = "A2"
+
+    for row in range(
+        2,
+        alerts_sheet.max_row + 1
+    ):
+
+        alerts_sheet[
+            f"H{row}"
+        ].number_format = '₹#,##0.00'
+
+    auto_adjust_columns(
+        alerts_sheet
+    )
+
+    add_table(
+        alerts_sheet,
+        "OperationalAlerts"
+    )
 
 
     # ========================================
