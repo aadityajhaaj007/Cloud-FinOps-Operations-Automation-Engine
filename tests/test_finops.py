@@ -63,6 +63,14 @@ from src.alert_engine import (
     generate_operational_alerts
 )
 
+from src.aws_integration import (
+    MockAWSProvider,
+    AWSProvider,
+    normalize_aws_data,
+    get_cost_data,
+    REQUIRED_AWS_COLUMNS,
+)
+
 class TestFinOpsPipeline(unittest.TestCase):
 
     def setUp(self):
@@ -1574,6 +1582,140 @@ class TestFinOpsPipeline(unittest.TestCase):
             alert_ids[1],
             "ALT-0002"
         )
+
+
+class TestAWSIntegration(unittest.TestCase):
+
+    def setUp(self):
+
+        self.data = [
+            {
+                "Date": "2026-09-01",
+                "Resource_ID": "i-test001",
+                "Service": "EC2",
+                "Region": "ap-south-1",
+                "Business_Unit": "Engineering",
+                "Environment": "Production",
+                "CPU_Utilization": "25.5",
+                "Storage_GB": "100",
+                "Monthly_Cost": "1500.00",
+                "Owner": "FinOps",
+                "Resource_Status": "Running",
+            }
+        ]
+
+
+    def test_mock_provider_returns_data(self):
+
+        provider = MockAWSProvider(self.data)
+
+        df = provider.get_cost_data()
+
+        self.assertEqual(
+            len(df),
+            1
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Resource_ID"],
+            "i-test001"
+        )
+
+
+    def test_normalized_schema(self):
+
+        provider = MockAWSProvider(self.data)
+
+        df = get_cost_data(provider)
+
+        self.assertEqual(
+            list(df.columns),
+            REQUIRED_AWS_COLUMNS
+        )
+
+        self.assertEqual(
+            len(df.columns),
+            11
+        )
+
+
+    def test_numeric_normalization(self):
+
+        provider = MockAWSProvider(self.data)
+
+        df = get_cost_data(provider)
+
+        self.assertTrue(
+            pd.api.types.is_numeric_dtype(
+                df["CPU_Utilization"]
+            )
+        )
+
+        self.assertTrue(
+            pd.api.types.is_numeric_dtype(
+                df["Storage_GB"]
+            )
+        )
+
+        self.assertTrue(
+            pd.api.types.is_numeric_dtype(
+                df["Monthly_Cost"]
+            )
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Monthly_Cost"],
+            1500.00
+        )
+
+
+    def test_missing_required_column(self):
+
+        incomplete_data = self.data[0].copy()
+
+        del incomplete_data["Monthly_Cost"]
+
+        provider = MockAWSProvider(
+            [incomplete_data]
+        )
+
+        with self.assertRaises(ValueError):
+
+            get_cost_data(provider)
+
+
+    def test_empty_mock_provider(self):
+
+        provider = MockAWSProvider()
+
+        df = provider.get_cost_data()
+
+        self.assertTrue(
+            df.empty
+        )
+
+        self.assertEqual(
+            list(df.columns),
+            REQUIRED_AWS_COLUMNS
+        )
+
+
+    def test_real_aws_provider_not_implemented(self):
+
+        provider = AWSProvider(
+            region_name="ap-south-1"
+        )
+
+        with self.assertRaises(NotImplementedError):
+
+            provider.get_cost_data()
+
+
+    def test_provider_required(self):
+
+        with self.assertRaises(ValueError):
+
+            get_cost_data(None)
 
 
 if __name__ == "__main__":
