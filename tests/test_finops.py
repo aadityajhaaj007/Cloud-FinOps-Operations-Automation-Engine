@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import Mock
 from datetime import datetime
 
 import pandas as pd
@@ -1700,15 +1701,20 @@ class TestAWSIntegration(unittest.TestCase):
         )
 
 
-    def test_real_aws_provider_not_implemented(self):
+    def test_real_aws_provider_initialization(self):
 
         provider = AWSProvider(
             region_name="ap-south-1"
         )
 
-        with self.assertRaises(NotImplementedError):
+        self.assertIsNotNone(
+            provider.cost_explorer
+        )
 
-            provider.get_cost_data()
+        self.assertEqual(
+            provider.region_name,
+            "ap-south-1"
+        )
 
 
     def test_provider_required(self):
@@ -1716,6 +1722,232 @@ class TestAWSIntegration(unittest.TestCase):
         with self.assertRaises(ValueError):
 
             get_cost_data(None)
+
+
+    def test_cost_explorer_response_parsing(self):
+
+        provider = AWSProvider(
+            region_name="ap-south-1"
+        )
+
+        mock_response = {
+            "ResultsByTime": [
+                {
+                    "TimePeriod": {
+                        "Start": "2026-09-01",
+                        "End": "2026-09-02"
+                    },
+                    "Groups": [
+                        {
+                            "Keys": ["Amazon Elastic Compute Cloud - Compute"],
+                            "Metrics": {
+                                "UnblendedCost": {
+                                    "Amount": "125.50",
+                                    "Unit": "USD"
+                                }
+                            }
+                        },
+                        {
+                            "Keys": ["Amazon Simple Storage Service"],
+                            "Metrics": {
+                                "UnblendedCost": {
+                                    "Amount": "50.25",
+                                    "Unit": "USD"
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+
+        provider.cost_explorer.get_cost_and_usage = Mock(
+            return_value=mock_response
+        )
+
+        df = provider.get_cost_data(
+            start_date="2026-09-01",
+            end_date="2026-09-02"
+        )
+
+        self.assertEqual(
+            len(df),
+            2
+        )
+
+        self.assertEqual(
+            list(df.columns),
+            REQUIRED_AWS_COLUMNS
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Monthly_Cost"],
+            125.50
+        )
+
+        self.assertEqual(
+            df.iloc[1]["Monthly_Cost"],
+            50.25
+        )
+
+
+    def test_cost_explorer_api_parameters(self):
+
+        provider = AWSProvider(
+            region_name="ap-south-1"
+        )
+
+        mock_response = {
+            "ResultsByTime": []
+        }
+
+        provider.cost_explorer.get_cost_and_usage = Mock(
+            return_value=mock_response
+        )
+
+        provider.get_cost_data(
+            start_date="2026-09-01",
+            end_date="2026-09-03"
+        )
+
+        provider.cost_explorer.get_cost_and_usage.assert_called_once_with(
+            TimePeriod={
+                "Start": "2026-09-01",
+                "End": "2026-09-03"
+            },
+            Granularity="DAILY",
+            Metrics=["UnblendedCost"],
+            GroupBy=[
+                {
+                    "Type": "DIMENSION",
+                    "Key": "SERVICE"
+                }
+            ]
+        )
+
+    def test_cost_explorer_pagination(self):
+
+        provider = AWSProvider(
+            region_name="ap-south-1"
+        )
+
+        first_response = {
+            "ResultsByTime": [
+                {
+                    "TimePeriod": {
+                        "Start": "2026-09-01",
+                        "End": "2026-09-02"
+                    },
+                    "Groups": [
+                        {
+                            "Keys": ["Amazon Elastic Compute Cloud - Compute"],
+                            "Metrics": {
+                                "UnblendedCost": {
+                                    "Amount": "100.00",
+                                    "Unit": "USD"
+                                }
+                            }
+                        }
+                    ]
+                }
+            ],
+            "NextPageToken": "TOKEN-123"
+        }
+
+        second_response = {
+            "ResultsByTime": [
+                {
+                    "TimePeriod": {
+                        "Start": "2026-09-02",
+                        "End": "2026-09-03"
+                    },
+                    "Groups": [
+                        {
+                            "Keys": ["Amazon Simple Storage Service"],
+                            "Metrics": {
+                                "UnblendedCost": {
+                                    "Amount": "50.00",
+                                    "Unit": "USD"
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+
+        provider.cost_explorer.get_cost_and_usage = Mock(
+            side_effect=[
+                first_response,
+                second_response
+            ]
+        )
+
+        df = provider.get_cost_data(
+            start_date="2026-09-01",
+            end_date="2026-09-03"
+        )
+
+        self.assertEqual(
+            len(df),
+            2
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Service"],
+            "EC2"
+        )
+
+        self.assertEqual(
+            df.iloc[1]["Service"],
+            "S3"
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Monthly_Cost"],
+            100.00
+        )
+
+        self.assertEqual(
+            df.iloc[1]["Monthly_Cost"],
+            50.00
+        )
+
+        self.assertEqual(
+            provider.cost_explorer.get_cost_and_usage.call_count,
+            2
+        )
+
+        provider.cost_explorer.get_cost_and_usage.assert_any_call(
+            TimePeriod={
+                "Start": "2026-09-01",
+                "End": "2026-09-03"
+            },
+            Granularity="DAILY",
+            Metrics=["UnblendedCost"],
+            GroupBy=[
+                {
+                    "Type": "DIMENSION",
+                    "Key": "SERVICE"
+                }
+            ]
+        )
+
+        provider.cost_explorer.get_cost_and_usage.assert_any_call(
+            TimePeriod={
+                "Start": "2026-09-01",
+                "End": "2026-09-03"
+            },
+            Granularity="DAILY",
+            Metrics=["UnblendedCost"],
+            GroupBy=[
+                {
+                    "Type": "DIMENSION",
+                    "Key": "SERVICE"
+                }
+            ],
+            NextPageToken="TOKEN-123"
+        )
 
 
 if __name__ == "__main__":

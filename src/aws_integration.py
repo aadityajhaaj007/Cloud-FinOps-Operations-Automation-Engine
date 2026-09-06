@@ -1,3 +1,6 @@
+from datetime import datetime, timedelta
+
+import boto3
 import pandas as pd
 
 
@@ -14,6 +17,15 @@ REQUIRED_AWS_COLUMNS = [
     "Owner",
     "Resource_Status"
 ]
+
+AWS_SERVICE_MAP = {
+    "Amazon Elastic Compute Cloud - Compute": "EC2",
+    "Amazon Simple Storage Service": "S3",
+    "Amazon Relational Database Service": "RDS",
+    "AWS Lambda": "Lambda",
+    "Amazon CloudFront": "CloudFront",
+    "Amazon Elastic Block Store": "EBS",
+}
 
 
 class MockAWSProvider:
@@ -42,24 +54,133 @@ class MockAWSProvider:
 
 class AWSProvider:
     """
-    AWS data provider.
+    AWS data provider using AWS Cost Explorer.
 
-    Real AWS API integrations will be added incrementally
-    in later v1.7 releases.
+    Cost Explorer provides aggregated AWS cost data.
+    Resource-level enrichment will be added in later
+    v1.7 releases.
     """
 
     def __init__(self, region_name=None):
         self.region_name = region_name
 
-    def get_cost_data(self):
-        """
-        Placeholder for AWS Cost Explorer integration.
-        """
-
-        raise NotImplementedError(
-            "AWS Cost Explorer integration is not implemented yet."
+        self.cost_explorer = boto3.client(
+            "ce",
+            region_name=region_name
         )
 
+    def get_cost_data(
+        self,
+        start_date=None,
+        end_date=None
+    ):
+        """
+        Retrieve AWS cost data from Cost Explorer.
+
+        If dates are not supplied, retrieve the previous
+        30 days of cost data.
+        """
+
+        if start_date is None:
+            start_date = (
+                datetime.utcnow() - timedelta(days=30)
+            ).strftime("%Y-%m-%d")
+
+        if end_date is None:
+            end_date = datetime.utcnow().strftime("%Y-%m-%d")
+
+        request_parameters = {
+            "TimePeriod": {
+                "Start": start_date,
+                "End": end_date
+            },
+            "Granularity": "DAILY",
+            "Metrics": ["UnblendedCost"],
+            "GroupBy": [
+                {
+                    "Type": "DIMENSION",
+                    "Key": "SERVICE"
+                }
+            ]
+        }
+
+        all_results = []
+
+        while True:
+
+            response = self.cost_explorer.get_cost_and_usage(
+                **request_parameters
+            )
+
+            all_results.extend(
+                response.get("ResultsByTime", [])
+            )
+
+            next_page_token = response.get(
+                "NextPageToken"
+            )
+
+            if not next_page_token:
+                break
+
+            request_parameters["NextPageToken"] = (
+                next_page_token
+            )
+
+        combined_response = {
+            "ResultsByTime": all_results
+        }
+
+        return self._parse_cost_response(
+            combined_response
+        )
+
+    def _parse_cost_response(self, response):
+        """
+        Convert Cost Explorer response into a DataFrame.
+        """
+
+        records = []
+
+        for result in response.get("ResultsByTime", []):
+
+            date = result["TimePeriod"]["Start"]
+
+            for group in result.get("Groups", []):
+
+                aws_service = group["Keys"][0]
+
+                service = AWS_SERVICE_MAP.get(
+                    aws_service,
+                    aws_service
+                )
+
+                amount = float(
+                    group["Metrics"]["UnblendedCost"]["Amount"]
+                )
+
+                records.append(
+                    {
+                        "Date": date,
+                        "Resource_ID": "AWS-COST-AGGREGATE",
+                        "Service": service,
+                        "Region": self.region_name or "global",
+                        "Business_Unit": "Unknown",
+                        "Environment": "Unknown",
+                        "CPU_Utilization": 0,
+                        "Storage_GB": 0,
+                        "Monthly_Cost": amount,
+                        "Owner": "Unknown",
+                        "Resource_Status": "Running"
+                    }
+                )
+
+        df = pd.DataFrame(
+            records,
+            columns=REQUIRED_AWS_COLUMNS
+        )
+
+        return normalize_aws_data(df)
 
 def normalize_aws_data(df):
     """
