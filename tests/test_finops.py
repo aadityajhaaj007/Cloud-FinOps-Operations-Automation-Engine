@@ -66,10 +66,13 @@ from src.alert_engine import (
 
 from src.aws_integration import (
     MockAWSProvider,
+    MockResourceMetadataProvider,
     AWSProvider,
     normalize_aws_data,
     get_cost_data,
     REQUIRED_AWS_COLUMNS,
+    RESOURCE_METADATA_COLUMNS,
+    extract_finops_tags
 )
 
 class TestFinOpsPipeline(unittest.TestCase):
@@ -1605,6 +1608,92 @@ class TestAWSIntegration(unittest.TestCase):
             }
         ]
 
+    def test_mock_resource_metadata_provider(self):
+
+        resources = [
+            {
+                "Resource_ID": "i-0123456789abcdef",
+                "Service": "EC2",
+                "Region": "ap-south-1",
+                "Business_Unit": "Finance",
+                "Environment": "Production",
+                "Owner": "finance-team",
+                "Resource_Status": "Running"
+            }
+        ]
+
+        provider = MockResourceMetadataProvider(
+            resources=resources
+        )
+
+        df = provider.get_resource_metadata()
+
+        self.assertEqual(
+            len(df),
+            1
+        )
+
+        self.assertEqual(
+            list(df.columns),
+            RESOURCE_METADATA_COLUMNS
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Resource_ID"],
+            "i-0123456789abcdef"
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Business_Unit"],
+            "Finance"
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Environment"],
+            "Production"
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Owner"],
+            "finance-team"
+        )
+
+
+    def test_mock_resource_metadata_defaults(self):
+
+        resources = [
+            {
+                "Resource_ID": "bucket-001",
+                "Service": "S3",
+                "Region": "ap-south-1"
+            }
+        ]
+
+        provider = MockResourceMetadataProvider(
+            resources=resources
+        )
+
+        df = provider.get_resource_metadata()
+
+        self.assertEqual(
+            df.iloc[0]["Business_Unit"],
+            "Unknown"
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Environment"],
+            "Unknown"
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Owner"],
+            "Unknown"
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Resource_Status"],
+            "Unknown"
+        )
 
     def test_mock_provider_returns_data(self):
 
@@ -1948,7 +2037,50 @@ class TestAWSIntegration(unittest.TestCase):
             ],
             NextPageToken="TOKEN-123"
         )
+    def test_extract_finops_tags(self):
 
+        tags = {
+            "BusinessUnit": "Finance",
+            "Env": "Production",
+            "owner": "finops-team"
+        }
+
+        extracted = extract_finops_tags(tags)
+
+        self.assertEqual(
+            extracted["Business_Unit"],
+            "Finance"
+        )
+
+        self.assertEqual(
+            extracted["Environment"],
+            "Production"
+        )
+
+        self.assertEqual(
+            extracted["Owner"],
+            "finops-team"
+        )
+
+
+    def test_extract_finops_tags_defaults(self):
+
+        extracted = extract_finops_tags({})
+
+        self.assertEqual(
+            extracted["Business_Unit"],
+            "Unknown"
+        )
+
+        self.assertEqual(
+            extracted["Environment"],
+            "Unknown"
+        )
+
+        self.assertEqual(
+            extracted["Owner"],
+            "Unknown"
+        )
 
 if __name__ == "__main__":
     unittest.main()
