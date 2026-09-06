@@ -18,6 +18,16 @@ REQUIRED_AWS_COLUMNS = [
     "Resource_Status"
 ]
 
+RESOURCE_METADATA_COLUMNS = [
+    "Resource_ID",
+    "Service",
+    "Region",
+    "Business_Unit",
+    "Environment",
+    "Owner",
+    "Resource_Status"
+]
+
 AWS_SERVICE_MAP = {
     "Amazon Elastic Compute Cloud - Compute": "EC2",
     "Amazon Simple Storage Service": "S3",
@@ -27,6 +37,46 @@ AWS_SERVICE_MAP = {
     "Amazon Elastic Block Store": "EBS",
 }
 
+AWS_TAG_MAP = {
+    "Business_Unit": [
+        "Business_Unit",
+        "BusinessUnit",
+        "business_unit"
+    ],
+    "Environment": [
+        "Environment",
+        "environment",
+        "Env"
+    ],
+    "Owner": [
+        "Owner",
+        "owner",
+        "CostCenterOwner"
+    ]
+}
+
+def extract_finops_tags(tags):
+    """
+    Extract FinOps fields from AWS resource tags.
+
+    Returns Unknown when a mapped tag is not present.
+    """
+
+    tags = tags or {}
+
+    extracted = {}
+
+    for finops_field, tag_aliases in AWS_TAG_MAP.items():
+
+        extracted[finops_field] = "Unknown"
+
+        for tag_key in tag_aliases:
+
+            if tag_key in tags:
+                extracted[finops_field] = tags[tag_key]
+                break
+
+    return extracted
 
 class MockAWSProvider:
     """
@@ -50,6 +100,53 @@ class MockAWSProvider:
         df = pd.DataFrame(self.data)
 
         return normalize_aws_data(df)
+
+
+class MockResourceMetadataProvider:
+    """
+    Mock AWS resource metadata provider for local development
+    and CI testing.
+    """
+
+    def __init__(self, resources=None):
+        self.resources = resources or []
+
+    def get_resource_metadata(self):
+        """
+        Return resource metadata as a DataFrame.
+        """
+
+        records = []
+
+        for resource in self.resources:
+            records.append(
+                {
+                    "Resource_ID": resource["Resource_ID"],
+                    "Service": resource["Service"],
+                    "Region": resource["Region"],
+                    "Business_Unit": resource.get(
+                        "Business_Unit",
+                        "Unknown"
+                    ),
+                    "Environment": resource.get(
+                        "Environment",
+                        "Unknown"
+                    ),
+                    "Owner": resource.get(
+                        "Owner",
+                        "Unknown"
+                    ),
+                    "Resource_Status": resource.get(
+                        "Resource_Status",
+                        "Unknown"
+                    )
+                }
+            )
+
+        return pd.DataFrame(
+            records,
+            columns=RESOURCE_METADATA_COLUMNS
+        )
 
 
 class AWSProvider:
