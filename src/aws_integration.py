@@ -55,6 +55,7 @@ AWS_TAG_MAP = {
     ]
 }
 
+
 def extract_finops_tags(tags):
     """
     Extract FinOps fields from AWS resource tags.
@@ -77,6 +78,7 @@ def extract_finops_tags(tags):
                 break
 
     return extracted
+
 
 class MockAWSProvider:
     """
@@ -119,6 +121,7 @@ class MockResourceMetadataProvider:
         records = []
 
         for resource in self.resources:
+
             records.append(
                 {
                     "Resource_ID": resource["Resource_ID"],
@@ -151,11 +154,10 @@ class MockResourceMetadataProvider:
 
 class AWSProvider:
     """
-    AWS data provider using AWS Cost Explorer.
+    AWS data provider using AWS Cost Explorer and EC2.
 
     Cost Explorer provides aggregated AWS cost data.
-    Resource-level enrichment will be added in later
-    v1.7 releases.
+    EC2 provides resource-level metadata and tags.
     """
 
     def __init__(self, region_name=None):
@@ -164,6 +166,89 @@ class AWSProvider:
         self.cost_explorer = boto3.client(
             "ce",
             region_name=region_name
+        )
+
+        self.ec2 = boto3.client(
+            "ec2",
+            region_name=region_name
+        )
+
+    def get_resource_metadata(self):
+        """
+        Retrieve EC2 resource metadata and FinOps tags.
+        """
+
+        resources = []
+
+        response = self.ec2.describe_instances()
+
+        while True:
+
+            for reservation in response.get(
+                "Reservations",
+                []
+            ):
+
+                for instance in reservation.get(
+                    "Instances",
+                    []
+                ):
+
+                    tags = {
+                        tag["Key"]: tag["Value"]
+                        for tag in instance.get(
+                            "Tags",
+                            []
+                        )
+                    }
+
+                    finops_tags = extract_finops_tags(
+                        tags
+                    )
+
+                    resources.append(
+                        {
+                            "Resource_ID": instance[
+                                "InstanceId"
+                            ],
+                            "Service": "EC2",
+                            "Region": (
+                                self.region_name
+                                or "global"
+                            ),
+                            "Business_Unit": finops_tags[
+                                "Business_Unit"
+                            ],
+                            "Environment": finops_tags[
+                                "Environment"
+                            ],
+                            "Owner": finops_tags[
+                                "Owner"
+                            ],
+                            "Resource_Status": instance.get(
+                                "State",
+                                {}
+                            ).get(
+                                "Name",
+                                "Unknown"
+                            )
+                        }
+                    )
+
+            next_token = response.get(
+                "NextToken"
+            )
+
+            if not next_token:
+                break
+
+            response = self.ec2.describe_instances(
+                NextToken=next_token
+            )
+
+        return pd.DataFrame(
+            resources,
+            columns=RESOURCE_METADATA_COLUMNS
         )
 
     def get_cost_data(
@@ -180,11 +265,14 @@ class AWSProvider:
 
         if start_date is None:
             start_date = (
-                datetime.utcnow() - timedelta(days=30)
+                datetime.utcnow()
+                - timedelta(days=30)
             ).strftime("%Y-%m-%d")
 
         if end_date is None:
-            end_date = datetime.utcnow().strftime("%Y-%m-%d")
+            end_date = datetime.utcnow().strftime(
+                "%Y-%m-%d"
+            )
 
         request_parameters = {
             "TimePeriod": {
@@ -192,7 +280,9 @@ class AWSProvider:
                 "End": end_date
             },
             "Granularity": "DAILY",
-            "Metrics": ["UnblendedCost"],
+            "Metrics": [
+                "UnblendedCost"
+            ],
             "GroupBy": [
                 {
                     "Type": "DIMENSION",
@@ -205,12 +295,18 @@ class AWSProvider:
 
         while True:
 
-            response = self.cost_explorer.get_cost_and_usage(
-                **request_parameters
+            response = (
+                self.cost_explorer
+                .get_cost_and_usage(
+                    **request_parameters
+                )
             )
 
             all_results.extend(
-                response.get("ResultsByTime", [])
+                response.get(
+                    "ResultsByTime",
+                    []
+                )
             )
 
             next_page_token = response.get(
@@ -239,13 +335,27 @@ class AWSProvider:
 
         records = []
 
-        for result in response.get("ResultsByTime", []):
+        for result in response.get(
+            "ResultsByTime",
+            []
+        ):
 
-            date = result["TimePeriod"]["Start"]
+            date = result[
+                "TimePeriod"
+            ][
+                "Start"
+            ]
 
-            for group in result.get("Groups", []):
+            for group in result.get(
+                "Groups",
+                []
+            ):
 
-                aws_service = group["Keys"][0]
+                aws_service = group[
+                    "Keys"
+                ][
+                    0
+                ]
 
                 service = AWS_SERVICE_MAP.get(
                     aws_service,
@@ -253,15 +363,26 @@ class AWSProvider:
                 )
 
                 amount = float(
-                    group["Metrics"]["UnblendedCost"]["Amount"]
+                    group[
+                        "Metrics"
+                    ][
+                        "UnblendedCost"
+                    ][
+                        "Amount"
+                    ]
                 )
 
                 records.append(
                     {
                         "Date": date,
-                        "Resource_ID": "AWS-COST-AGGREGATE",
+                        "Resource_ID": (
+                            "AWS-COST-AGGREGATE"
+                        ),
                         "Service": service,
-                        "Region": self.region_name or "global",
+                        "Region": (
+                            self.region_name
+                            or "global"
+                        ),
                         "Business_Unit": "Unknown",
                         "Environment": "Unknown",
                         "CPU_Utilization": 0,
@@ -278,6 +399,7 @@ class AWSProvider:
         )
 
         return normalize_aws_data(df)
+
 
 def normalize_aws_data(df):
     """
@@ -296,7 +418,9 @@ def normalize_aws_data(df):
             f"Missing AWS data columns: {missing_columns}"
         )
 
-    normalized = df[REQUIRED_AWS_COLUMNS].copy()
+    normalized = df[
+        REQUIRED_AWS_COLUMNS
+    ].copy()
 
     normalized["Date"] = pd.to_datetime(
         normalized["Date"],
