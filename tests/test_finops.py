@@ -1800,6 +1800,10 @@ class TestAWSIntegration(unittest.TestCase):
             provider.cost_explorer
         )
 
+        self.assertIsNotNone(
+            provider.ec2
+       )
+
         self.assertEqual(
             provider.region_name,
             "ap-south-1"
@@ -2080,6 +2084,209 @@ class TestAWSIntegration(unittest.TestCase):
         self.assertEqual(
             extracted["Owner"],
             "Unknown"
+        )
+
+    def test_ec2_resource_metadata(self):
+
+        provider = AWSProvider(
+            region_name="ap-south-1"
+        )
+
+        mock_response = {
+            "Reservations": [
+                {
+                    "Instances": [
+                        {
+                            "InstanceId": "i-0123456789abcdef",
+                            "State": {
+                                "Name": "running"
+                            },
+                            "Tags": [
+                                {
+                                    "Key": "BusinessUnit",
+                                    "Value": "Finance"
+                                },
+                                {
+                                    "Key": "Env",
+                                    "Value": "Production"
+                                },
+                                {
+                                    "Key": "Owner",
+                                    "Value": "finance-team"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+
+        provider.ec2.describe_instances = Mock(
+            return_value=mock_response
+        )
+
+        df = provider.get_resource_metadata()
+
+        self.assertEqual(
+            len(df),
+            1
+        )
+
+        self.assertEqual(
+            list(df.columns),
+            RESOURCE_METADATA_COLUMNS
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Resource_ID"],
+            "i-0123456789abcdef"
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Service"],
+            "EC2"
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Region"],
+            "ap-south-1"
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Business_Unit"],
+            "Finance"
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Environment"],
+            "Production"
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Owner"],
+            "finance-team"
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Resource_Status"],
+            "running"
+        )
+    def test_ec2_resource_metadata_defaults(self):
+
+        provider = AWSProvider(
+            region_name="ap-south-1"
+        )
+
+        mock_response = {
+            "Reservations": [
+                {
+                    "Instances": [
+                        {
+                            "InstanceId": "i-missing-tags",
+                            "State": {
+                                "Name": "stopped"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+
+        provider.ec2.describe_instances = Mock(
+            return_value=mock_response
+        )
+
+        df = provider.get_resource_metadata()
+
+        self.assertEqual(
+            df.iloc[0]["Business_Unit"],
+            "Unknown"
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Environment"],
+            "Unknown"
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Owner"],
+            "Unknown"
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Resource_Status"],
+            "stopped"
+        )
+    def test_ec2_resource_metadata_pagination(self):
+
+        provider = AWSProvider(
+            region_name="ap-south-1"
+        )
+
+        first_response = {
+            "Reservations": [
+                {
+                    "Instances": [
+                        {
+                            "InstanceId": "i-page001",
+                            "State": {
+                                "Name": "running"
+                            }
+                        }
+                    ]
+                }
+            ],
+            "NextToken": "TOKEN-123"
+        }
+
+        second_response = {
+            "Reservations": [
+                {
+                    "Instances": [
+                        {
+                            "InstanceId": "i-page002",
+                            "State": {
+                                "Name": "stopped"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+
+        provider.ec2.describe_instances = Mock(
+            side_effect=[
+                first_response,
+                second_response
+            ]
+        )
+
+        df = provider.get_resource_metadata()
+
+        self.assertEqual(
+            len(df),
+            2
+        )
+
+        self.assertEqual(
+            df.iloc[0]["Resource_ID"],
+            "i-page001"
+        )
+
+        self.assertEqual(
+            df.iloc[1]["Resource_ID"],
+            "i-page002"
+        )
+
+        self.assertEqual(
+            provider.ec2.describe_instances.call_count,
+            2
+        )
+
+        provider.ec2.describe_instances.assert_any_call()
+
+        provider.ec2.describe_instances.assert_any_call(
+            NextToken="TOKEN-123"
         )
 
 if __name__ == "__main__":
