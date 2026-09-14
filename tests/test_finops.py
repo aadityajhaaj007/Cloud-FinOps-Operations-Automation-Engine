@@ -64,6 +64,8 @@ from src.alert_engine import (
     generate_operational_alerts
 )
 
+from botocore.exceptions import ClientError
+
 from src.aws_integration import (
     MockAWSProvider,
     MockResourceMetadataProvider,
@@ -2288,6 +2290,182 @@ class TestAWSIntegration(unittest.TestCase):
         provider.ec2.describe_instances.assert_any_call(
             NextToken="TOKEN-123"
         )
+
+    def test_s3_resource_metadata_eu_region(self):
+        provider = AWSProvider(region_name="ap-south-1")
+
+        provider.s3 = Mock()
+
+        provider.s3.list_buckets.return_value = {
+            "Buckets": [
+                {"Name": "legacy-eu-bucket"}
+            ]
+        }
+
+        provider.s3.get_bucket_location.return_value = {
+            "LocationConstraint": "EU"
+        }
+
+        provider.s3.get_bucket_tagging.return_value = {
+            "TagSet": []
+        }
+
+        result = provider.get_s3_resource_metadata()
+
+        self.assertEqual(len(result), 1)
+
+        self.assertEqual(
+            result.iloc[0]["Resource_ID"],
+            "legacy-eu-bucket"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Service"],
+            "S3"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Region"],
+            "eu-west-1"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Resource_Status"],
+            "Active"
+        )
+
+    def test_s3_resource_metadata_defaults(self):
+        provider = AWSProvider(region_name="ap-south-1")
+
+        provider.s3 = Mock()
+
+        provider.s3.list_buckets.return_value = {
+            "Buckets": [
+                {"Name": "untagged-bucket"}
+            ]
+        }
+
+        provider.s3.get_bucket_location.return_value = {
+            "LocationConstraint": None
+        }
+
+        provider.s3.exceptions.ClientError = ClientError
+        provider.s3.get_bucket_tagging.side_effect = ClientError(
+            {
+                "Error": {
+                    "Code": "NoSuchTagSet",
+                    "Message": "The bucket has no tags"
+                }
+            },
+            "GetBucketTagging"
+        )
+
+        result = provider.get_s3_resource_metadata()
+
+        self.assertEqual(len(result), 1)
+
+        self.assertEqual(
+            result.iloc[0]["Resource_ID"],
+            "untagged-bucket"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Service"],
+            "S3"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Region"],
+            "us-east-1"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Business_Unit"],
+            "Unknown"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Environment"],
+            "Unknown"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Owner"],
+            "Unknown"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Resource_Status"],
+            "Active"
+        )
+
+    def test_s3_resource_metadata(self):
+        provider = AWSProvider(region_name="ap-south-1")
+
+        provider.s3 = Mock()
+
+        provider.s3.list_buckets.return_value = {
+            "Buckets": [
+                {"Name": "finops-production-data"}
+        ]
+    }
+
+        provider.s3.get_bucket_location.return_value = {
+            "LocationConstraint": "ap-south-1"
+    }
+
+        provider.s3.get_bucket_tagging.return_value = {
+            "TagSet": [
+                {"Key": "BusinessUnit", "Value": "Finance"},
+                {"Key": "Env", "Value": "Production"},
+                {"Key": "Owner", "Value": "FinOps-Team"}
+        ]
+    }
+
+        result = provider.get_s3_resource_metadata()
+
+        self.assertEqual(len(result), 1)
+
+        self.assertEqual(
+            list(result.columns),
+            RESOURCE_METADATA_COLUMNS
+    )
+
+        self.assertEqual(
+            result.iloc[0]["Resource_ID"],
+            "finops-production-data"
+    )
+
+        self.assertEqual(
+            result.iloc[0]["Service"],
+            "S3"
+    )
+
+        self.assertEqual(
+            result.iloc[0]["Region"],
+            "ap-south-1"
+    )
+
+        self.assertEqual(
+            result.iloc[0]["Business_Unit"],
+            "Finance"
+    )
+
+        self.assertEqual(
+            result.iloc[0]["Environment"],
+            "Production"
+    )
+
+        self.assertEqual(
+            result.iloc[0]["Owner"],
+            "FinOps-Team"
+    )
+
+        self.assertEqual(
+            result.iloc[0]["Resource_Status"],
+            "Active"
+    )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -173,6 +173,11 @@ class AWSProvider:
             region_name=region_name
         )
 
+        self.s3 = boto3.client(
+            "s3",
+            region_name=region_name
+        )
+
     def get_resource_metadata(self):
         """
         Retrieve EC2 resource metadata and FinOps tags.
@@ -245,6 +250,63 @@ class AWSProvider:
             response = self.ec2.describe_instances(
                 NextToken=next_token
             )
+
+        return pd.DataFrame(
+            resources,
+            columns=RESOURCE_METADATA_COLUMNS
+        )
+
+    def get_s3_resource_metadata(self):
+        """
+        Retrieve S3 bucket metadata and FinOps tag information.
+        """
+
+        resources = []
+
+        response = self.s3.list_buckets()
+
+        for bucket in response.get("Buckets", []):
+            bucket_name = bucket["Name"]
+
+            location_response = self.s3.get_bucket_location(
+                Bucket=bucket_name
+            )
+
+            location = location_response.get("LocationConstraint")
+
+            if location is None:
+                region = "us-east-1"
+            elif location == "EU":
+                region = "eu-west-1"
+            else:
+                region = location
+
+            try:
+                tagging_response = self.s3.get_bucket_tagging(
+                    Bucket=bucket_name
+                )
+
+                tag_set = tagging_response.get("TagSet", [])
+
+                tags = {
+                    tag["Key"]: tag["Value"]
+                    for tag in tag_set
+                }
+
+            except self.s3.exceptions.ClientError:
+                tags = {}
+
+            finops_tags = extract_finops_tags(tags)
+
+            resources.append({
+                "Resource_ID": bucket_name,
+                "Service": "S3",
+                "Region": region,
+                "Business_Unit": finops_tags["Business_Unit"],
+                "Environment": finops_tags["Environment"],
+                "Owner": finops_tags["Owner"],
+                "Resource_Status": "Active"
+            })
 
         return pd.DataFrame(
             resources,
