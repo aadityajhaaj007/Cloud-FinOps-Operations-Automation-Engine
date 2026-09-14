@@ -2291,6 +2291,188 @@ class TestAWSIntegration(unittest.TestCase):
             NextToken="TOKEN-123"
         )
 
+    def test_rds_resource_metadata_defaults(self):
+        provider = AWSProvider(region_name="ap-south-1")
+
+        provider.rds = Mock()
+
+        provider.rds.describe_db_instances.return_value = {
+            "DBInstances": [
+                {
+                    "DBInstanceIdentifier": "untagged-rds",
+                    "DBInstanceStatus": "stopped"
+                }
+            ]
+        }
+
+        result = provider.get_rds_resource_metadata()
+
+        self.assertEqual(len(result), 1)
+
+        self.assertEqual(
+            result.iloc[0]["Resource_ID"],
+            "untagged-rds"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Service"],
+            "RDS"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Region"],
+            "ap-south-1"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Business_Unit"],
+            "Unknown"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Environment"],
+            "Unknown"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Owner"],
+            "Unknown"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Resource_Status"],
+            "stopped"
+        )
+
+    def test_rds_resource_metadata_pagination(self):
+        provider = AWSProvider(region_name="ap-south-1")
+
+        provider.rds = Mock()
+
+        provider.rds.describe_db_instances.side_effect = [
+            {
+                "DBInstances": [
+                    {
+                        "DBInstanceIdentifier": "rds-instance-1",
+                        "DBInstanceStatus": "available",
+                        "TagList": []
+                    }
+                ],
+                "Marker": "page-2"
+            },
+            {
+                "DBInstances": [
+                    {
+                        "DBInstanceIdentifier": "rds-instance-2",
+                        "DBInstanceStatus": "available",
+                        "TagList": []
+                    }
+                ]
+            }
+        ]
+
+        result = provider.get_rds_resource_metadata()
+
+        self.assertEqual(len(result), 2)
+
+        self.assertEqual(
+            list(result["Resource_ID"]),
+            [
+                "rds-instance-1",
+                "rds-instance-2"
+            ]
+        )
+
+        self.assertEqual(
+            provider.rds.describe_db_instances.call_count,
+            2
+        )
+
+        first_call = provider.rds.describe_db_instances.call_args_list[0]
+        second_call = provider.rds.describe_db_instances.call_args_list[1]
+
+        self.assertEqual(
+            first_call.kwargs,
+            {}
+        )
+
+        self.assertEqual(
+            second_call.kwargs,
+            {"Marker": "page-2"}
+        )
+
+    def test_rds_resource_metadata(self):
+        provider = AWSProvider(region_name="ap-south-1")
+
+        provider.rds = Mock()
+
+        provider.rds.describe_db_instances.return_value = {
+            "DBInstances": [
+                {
+                    "DBInstanceIdentifier": "finops-prod-db",
+                    "DBInstanceStatus": "available",
+                    "TagList": [
+                        {
+                            "Key": "BusinessUnit",
+                            "Value": "Finance"
+                        },
+                        {
+                            "Key": "Env",
+                            "Value": "Production"
+                        },
+                        {
+                            "Key": "Owner",
+                            "Value": "FinOps-Team"
+                        }
+                    ]
+                }
+            ]
+        }
+
+        result = provider.get_rds_resource_metadata()
+
+        self.assertEqual(len(result), 1)
+
+        self.assertEqual(
+            list(result.columns),
+            RESOURCE_METADATA_COLUMNS
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Resource_ID"],
+            "finops-prod-db"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Service"],
+            "RDS"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Region"],
+            "ap-south-1"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Business_Unit"],
+            "Finance"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Environment"],
+            "Production"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Owner"],
+            "FinOps-Team"
+        )
+
+        self.assertEqual(
+            result.iloc[0]["Resource_Status"],
+            "available"
+        )
+
     def test_s3_resource_metadata_eu_region(self):
         provider = AWSProvider(region_name="ap-south-1")
 
