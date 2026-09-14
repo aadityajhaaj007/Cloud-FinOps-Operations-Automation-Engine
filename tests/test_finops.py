@@ -77,6 +77,259 @@ from src.aws_integration import (
     extract_finops_tags
 )
 
+from src.resource_inventory_validator import (
+    RESOURCE_INVENTORY_COLUMNS,
+    SUPPORTED_RESOURCE_SERVICES,
+    validate_resource_inventory_schema,
+    validate_resource_inventory_services,
+    validate_resource_inventory_duplicates,
+    validate_resource_inventory_metadata,
+    create_resource_inventory_quality_summary,
+    validate_resource_inventory
+)
+
+class TestResourceInventoryValidator(unittest.TestCase):
+
+    def setUp(self):
+        self.inventory = pd.DataFrame([
+            {
+                "Resource_ID": "i-12345",
+                "Service": "EC2",
+                "Region": "ap-south-1",
+                "Business_Unit": "Finance",
+                "Environment": "Production",
+                "Owner": "FinOps-Team",
+                "Resource_Status": "running"
+            },
+            {
+                "Resource_ID": "finops-prod-db",
+                "Service": "RDS",
+                "Region": "ap-south-1",
+                "Business_Unit": "Finance",
+                "Environment": "Production",
+                "Owner": "FinOps-Team",
+                "Resource_Status": "available"
+            },
+            {
+                "Resource_ID": "finops-prod-bucket",
+                "Service": "S3",
+                "Region": "ap-south-1",
+                "Business_Unit": "Finance",
+                "Environment": "Production",
+                "Owner": "FinOps-Team",
+                "Resource_Status": "Active"
+            }
+        ])
+
+    def test_resource_inventory_schema(self):
+        self.assertTrue(
+            validate_resource_inventory_schema(
+                self.inventory
+            )
+        )
+
+    def test_resource_inventory_schema_missing_column(self):
+        invalid_inventory = self.inventory.drop(
+            columns=["Owner"]
+        )
+
+        with self.assertRaises(ValueError):
+            validate_resource_inventory_schema(
+                invalid_inventory
+            )
+
+    def test_resource_inventory_services(self):
+        invalid_services = (
+            validate_resource_inventory_services(
+                self.inventory
+            )
+        )
+
+        self.assertEqual(
+            invalid_services,
+            []
+        )
+        self.assertEqual(
+            set(SUPPORTED_RESOURCE_SERVICES),
+            {"EC2", "S3", "RDS"}
+        )
+
+    def test_resource_inventory_invalid_service(self):
+        invalid_inventory = self.inventory.copy()
+
+        invalid_inventory.loc[
+            0,
+            "Service"
+        ] = "DynamoDB"
+
+        invalid_services = (
+            validate_resource_inventory_services(
+                invalid_inventory
+            )
+        )
+
+        self.assertEqual(
+            invalid_services,
+            ["DynamoDB"]
+        )
+
+    def test_resource_inventory_duplicates(self):
+        duplicate_inventory = pd.concat(
+            [
+                self.inventory,
+                self.inventory.iloc[[0]]
+            ],
+            ignore_index=True
+        )
+
+        duplicate_count = (
+            validate_resource_inventory_duplicates(
+                duplicate_inventory
+            )
+        )
+
+        self.assertEqual(
+            duplicate_count,
+            2
+        )
+
+    def test_resource_inventory_no_duplicates(self):
+        duplicate_count = (
+            validate_resource_inventory_duplicates(
+                self.inventory
+            )
+        )
+
+        self.assertEqual(
+            duplicate_count,
+            0
+        )
+
+    def test_resource_inventory_metadata(self):
+        invalid_inventory = self.inventory.copy()
+
+        invalid_inventory.loc[
+            0,
+            "Owner"
+        ] = "Unknown"
+
+        invalid_inventory.loc[
+            1,
+            "Environment"
+        ] = ""
+
+        invalid_inventory.loc[
+            2,
+            "Business_Unit"
+        ] = None
+
+        metadata_issues = (
+            validate_resource_inventory_metadata(
+                invalid_inventory
+            )
+        )
+
+        self.assertEqual(
+            metadata_issues["Owner"],
+            1
+        )
+        self.assertEqual(
+            metadata_issues["Environment"],
+            1
+        )
+        self.assertEqual(
+            metadata_issues["Business_Unit"],
+            1
+        )
+
+    def test_resource_inventory_metadata_clean(self):
+        metadata_issues = (
+            validate_resource_inventory_metadata(
+                self.inventory
+            )
+        )
+
+        self.assertEqual(
+            metadata_issues,
+            {}
+        )
+
+    def test_validate_resource_inventory(self):
+        result = validate_resource_inventory(
+            self.inventory
+        )
+
+        self.assertEqual(
+            result["invalid_services"],
+            []
+        )
+
+        self.assertEqual(
+            result["duplicate_count"],
+            0
+        )
+
+        self.assertEqual(
+            result["metadata_issues"],
+            {}
+        )
+
+        self.assertEqual(
+            result["summary"]["overall_status"],
+            "PASS"
+        )
+
+    def test_resource_inventory_quality_summary_pass(self):
+        summary = create_resource_inventory_quality_summary(
+            invalid_services=[],
+            duplicate_count=0,
+            metadata_issues={}
+        )
+
+        self.assertEqual(
+            summary["overall_status"],
+            "PASS"
+        )
+
+    def test_resource_inventory_quality_summary_warning(self):
+        summary = create_resource_inventory_quality_summary(
+            invalid_services=[],
+            duplicate_count=2,
+            metadata_issues={
+                "Owner": 1
+            }
+        )
+
+        self.assertEqual(
+            summary["duplicate_resources"],
+            "WARNING"
+        )
+        self.assertEqual(
+            summary["missing_metadata"],
+            "WARNING"
+        )
+        self.assertEqual(
+            summary["overall_status"],
+            "WARNING"
+        )
+
+    def test_resource_inventory_quality_summary_fail(self):
+        summary = create_resource_inventory_quality_summary(
+            invalid_services=["DynamoDB"],
+            duplicate_count=0,
+            metadata_issues={}
+        )
+
+        self.assertEqual(
+            summary["invalid_services"],
+            "FAIL"
+        )
+        self.assertEqual(
+            summary["overall_status"],
+            "FAIL"
+        )
+
+
 class TestFinOpsPipeline(unittest.TestCase):
 
     def setUp(self):
