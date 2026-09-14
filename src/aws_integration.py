@@ -376,6 +376,27 @@ class AWSProvider:
             columns=RESOURCE_METADATA_COLUMNS
         )
 
+    def get_unified_resource_inventory(self):
+        """
+        Combine EC2, RDS, and S3 resource metadata
+        into a single standardized inventory.
+        """
+
+        resource_frames = [
+            self.get_resource_metadata(),
+            self.get_rds_resource_metadata(),
+            self.get_s3_resource_metadata()
+        ]
+
+        inventory = pd.concat(
+            resource_frames,
+            ignore_index=True
+        )
+
+        return inventory[
+            RESOURCE_METADATA_COLUMNS
+        ]
+
     def get_cost_data(
         self,
         start_date=None,
