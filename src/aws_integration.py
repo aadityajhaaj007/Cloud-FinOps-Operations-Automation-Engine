@@ -178,6 +178,11 @@ class AWSProvider:
             region_name=region_name
         )
 
+        self.rds = boto3.client(
+            "rds",
+            region_name=region_name
+        )
+
     def get_resource_metadata(self):
         """
         Retrieve EC2 resource metadata and FinOps tags.
@@ -250,6 +255,64 @@ class AWSProvider:
             response = self.ec2.describe_instances(
                 NextToken=next_token
             )
+
+        return pd.DataFrame(
+            resources,
+            columns=RESOURCE_METADATA_COLUMNS
+        )
+
+    def get_rds_resource_metadata(self):
+        """
+        Retrieve RDS DB instance metadata and FinOps tag information.
+        """
+
+        resources = []
+        request_kwargs = {}
+
+        while True:
+            response = self.rds.describe_db_instances(
+                **request_kwargs
+            )
+
+            for db_instance in response.get("DBInstances", []):
+                resource_id = db_instance.get(
+                    "DBInstanceIdentifier",
+                    "Unknown"
+                )
+
+                status = db_instance.get(
+                    "DBInstanceStatus",
+                    "Unknown"
+                )
+
+                tag_list = db_instance.get("TagList", [])
+
+                tags = {
+                    tag["Key"]: tag["Value"]
+                    for tag in tag_list
+                    if "Key" in tag and "Value" in tag
+                }
+
+                finops_tags = extract_finops_tags(tags)
+
+                resources.append({
+                    "Resource_ID": resource_id,
+                    "Service": "RDS",
+                    "Region": self.region_name or "global",
+                    "Business_Unit": finops_tags["Business_Unit"],
+                    "Environment": finops_tags["Environment"],
+                    "Owner": finops_tags["Owner"],
+                    "Resource_Status": status
+                })
+
+            next_marker = response.get("Marker")
+
+            if not next_marker:
+                break
+
+            request_kwargs = {
+                "Marker": next_marker
+            }
 
         return pd.DataFrame(
             resources,
