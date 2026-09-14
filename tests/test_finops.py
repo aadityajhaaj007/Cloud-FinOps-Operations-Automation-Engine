@@ -2401,6 +2401,66 @@ class TestAWSIntegration(unittest.TestCase):
             {"Marker": "page-2"}
         )
 
+    def test_unified_resource_inventory(self):
+        """
+        Verify EC2, RDS, and S3 metadata are combined
+        into one standardized inventory.
+        """
+
+        provider = AWSProvider(region_name="ap-south-1")
+
+        ec2_data = pd.DataFrame([
+            {
+                "Resource_ID": "i-12345",
+                "Service": "EC2",
+                "Region": "ap-south-1",
+                "Business_Unit": "Finance",
+                "Environment": "Production",
+                "Owner": "FinOps-Team",
+                "Resource_Status": "running"
+            }
+        ])
+
+        rds_data = pd.DataFrame([
+            {
+                "Resource_ID": "finops-prod-db",
+                "Service": "RDS",
+                "Region": "ap-south-1",
+                "Business_Unit": "Finance",
+                "Environment": "Production",
+                "Owner": "FinOps-Team",
+                "Resource_Status": "available"
+            }
+        ])
+
+        s3_data = pd.DataFrame([
+            {
+                "Resource_ID": "finops-prod-bucket",
+                "Service": "S3",
+                "Region": "ap-south-1",
+                "Business_Unit": "Finance",
+                "Environment": "Production",
+                "Owner": "FinOps-Team",
+                "Resource_Status": "Active"
+            }
+        ])
+
+        provider.get_resource_metadata = lambda: ec2_data
+        provider.get_rds_resource_metadata = lambda: rds_data
+        provider.get_s3_resource_metadata = lambda: s3_data
+
+        inventory = provider.get_unified_resource_inventory()
+
+        self.assertEqual(len(inventory), 3)
+        self.assertEqual(
+            set(inventory["Service"]),
+            {"EC2", "RDS", "S3"}
+        )
+        self.assertEqual(
+            list(inventory.columns),
+            RESOURCE_METADATA_COLUMNS
+        )
+
     def test_rds_resource_metadata(self):
         provider = AWSProvider(region_name="ap-south-1")
 
